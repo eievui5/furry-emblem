@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+	"fe-editor",
+	"fe-data",
+]

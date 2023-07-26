@@ -1,0 +1,7 @@
+name = "Iron Sword"
+value = 69
+
+[type.Weapon]
+damage = 5
+weight = 5
+durability = 50
