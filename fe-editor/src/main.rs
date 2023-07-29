@@ -1,231 +1,148 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use paste::paste;
-use std::borrow::Cow;
-use std::path::Path;
+use egui::*;
+use egui_toast::*;
+use std::fs;
+use std::mem;
 use std::path::PathBuf;
-use std::{fs, mem};
 
 mod editors;
 use editors::*;
 
+mod new_file_window;
+use new_file_window::*;
+
+mod project;
+use project::*;
+
+mod menu_bar;
+
 const APP_NAME: &str = "Furry Emblem Editor";
+const TOAST_LENGTH: f64 = 5.0;
 
 fn main() -> Result<(), eframe::Error> {
 	let options = eframe::NativeOptions {
-		initial_window_size: Some(egui::vec2(640.0, 480.0)),
+		initial_window_size: Some(vec2(640.0, 480.0)),
 		..Default::default()
 	};
 	eframe::run_native(
 		APP_NAME,
 		options,
-		Box::new(|_cc| Box::<EditorApp>::default()),
+		Box::new(|_cc| Box::from(EditorApp::new())),
 	)
 }
 
-// This is a terrible terrible macro for generating what is not quite an enum but probably should be.
-macro_rules! file_types {
-	($($type:ident),+) => {
-		const FILE_TYPE_STRINGS: &[&str] = &[
-			$(stringify!($type)),+
-		];
-
-		paste! {
-			const FILE_TYPE_EDITORS: &[fn(&Path) -> Box<dyn Editor>] = &[
-				$([<$type Editor>]::create),+
-			];
-		}
-	};
+fn error(text: WidgetText) -> Toast {
+	Toast {
+		text,
+		kind: ToastKind::Error,
+		options: ToastOptions::default()
+			.duration_in_seconds(TOAST_LENGTH)
+			.show_progress(true)
+			.show_icon(true),
+	}
 }
-
-file_types!(Class, Item);
 
 #[derive(Default)]
-struct NewFileWindow {
-	open: bool,
-	path: Option<PathBuf>,
-	ty: usize,
-	dialog: Option<egui_file::FileDialog>,
+pub struct EditorApp {
+	// Options
+	pub light_mode: bool,
+	// File loading
+	pub open_file_dialog: Option<egui_file::FileDialog>,
+	pub new_file_window: NewFileWindow,
+	pub opened_file: Option<PathBuf>,
+	// Editor management
+	pub primary_editor: Option<Box<dyn Editor>>,
+	pub editors: Vec<Box<dyn Editor>>,
+	// Project management
+	pub local_projects: Vec<Project>,
+	pub primary_project: Option<Project>,
+	pub new_project_window: NewProjectWindow,
+	pub load_project_window: LoadProjectWindow,
 }
 
-impl NewFileWindow {
-	fn open(&mut self, ty: usize) {
-		self.open = true;
-		self.path = None;
-		self.dialog = None;
-		self.ty = ty;
-	}
+impl EditorApp {
+	pub fn new() -> Self {
+		let mut local_projects = Vec::new();
 
-	fn show(&mut self, ctx: &egui::Context) -> Option<Box<dyn Editor>> {
-		let mut editor = None;
-		let mut close_requested = false;
+		if let Ok(dir) = fs::read_dir(".") {
+			for entry in dir {
+				let Ok(entry) = entry else {
+					continue;
+				};
 
-		egui::Window::new("New File")
-			.open(&mut self.open)
-			.show(ctx, |ui| {
-				egui::Grid::new(0).min_col_width(100.0).show(ui, |ui| {
-					ui.label("Path:");
-					if ui
-						.button(
-							self.path
-								.as_ref()
-								.map_or(Cow::from("Select"), |p| p.to_string_lossy()),
-						)
-						.clicked()
-					{
-						let mut dialog = egui_file::FileDialog::save_file(self.path.clone());
-						dialog.open();
-						self.dialog = Some(dialog);
-					}
-					ui.end_row();
+				let fe_project = entry.path().join(PROJECT_FILE);
 
-					ui.label("Type:");
-					ui.menu_button(FILE_TYPE_STRINGS[self.ty], |ui| {
-						for (i, name) in FILE_TYPE_STRINGS.iter().enumerate() {
-							if ui.button(*name).clicked() {
-								self.ty = i;
-								ui.close_menu();
-							}
-						}
-					});
-					ui.end_row();
-				});
-				ui.horizontal(|ui| {
-					if let Some(path) = &self.path {
-						if ui.button("Create").clicked() {
-							editor = Some(FILE_TYPE_EDITORS[self.ty](path));
-							close_requested = true;
-						}
-					} else {
-						ui.add_enabled(false, egui::Button::new("Create"));
-					}
-					if ui.button("Cancel").clicked() {
-						close_requested = true;
-					}
-				})
-			});
+				let Ok(toml) = fs::read_to_string(fe_project) else {
+					continue;
+				};
 
-		self.open = self.open && !close_requested;
+				let Ok(mut project) = toml::from_str::<Project>(&toml) else {
+					continue;
+				};
 
-		if let Some(dialog) = &mut self.dialog {
-			if dialog.show(ctx).selected() {
-				self.path = dialog.path().map(|p| p.to_path_buf());
-				self.dialog = None;
+				project.path = entry.path();
+
+				local_projects.push(project);
 			}
 		}
 
-		editor
-	}
-}
-
-struct EditorApp {
-	open_file_dialog: Option<egui_file::FileDialog>,
-	opened_file: Option<PathBuf>,
-	primary_editor: Option<Box<dyn Editor>>,
-	editors: Vec<Box<dyn Editor>>,
-	log: String,
-	light_mode: bool,
-	new_file_window: NewFileWindow,
-}
-
-impl Default for EditorApp {
-	fn default() -> Self {
 		Self {
-			open_file_dialog: None,
-			opened_file: None,
-			primary_editor: None,
-			editors: Vec::new(),
-			log: String::new(),
-			light_mode: false,
-			new_file_window: NewFileWindow::default(),
+			local_projects,
+			..Default::default()
 		}
 	}
 }
 
 impl eframe::App for EditorApp {
-	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		egui::TopBottomPanel::top("Menu Bar").show(ctx, |ui| {
-			ui.horizontal(|ui| {
-				ui.menu_button("File", |ui| {
-					ui.menu_button("New", |ui| {
-						for (i, name) in FILE_TYPE_STRINGS.iter().enumerate() {
-							if ui.button(*name).clicked() {
-								self.new_file_window.open(i);
-								ui.close_menu();
-							}
-						}
-					});
-					if ui.button("Open").clicked() {
-						let mut dialog = egui_file::FileDialog::save_file(self.opened_file.clone());
-						dialog.open();
-						self.open_file_dialog = Some(dialog);
-						ui.close_menu();
-					}
-				});
+	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+		let mut toasts = Toasts::new()
+			.anchor(Align2::CENTER_TOP, (0.0, 10.0))
+			.direction(Direction::TopDown);
 
-				ui.menu_button("Options", |ui| {
-					if self.light_mode {
-						if ui.button("Switch to Dark Mode").clicked() {
-							self.light_mode = false;
-							ctx.set_visuals(egui::Visuals::dark());
-							ui.close_menu();
-						}
-					} else if ui.button("Switch to Light Mode").clicked() {
-						self.light_mode = true;
-						ctx.set_visuals(egui::Visuals::light());
-						ui.close_menu();
-					}
-				});
-			});
-
-			if let Some(dialog) = &mut self.open_file_dialog {
-				if dialog.show(ctx).selected() {
-					if let Some(file) = dialog.path() {
-						match fs::read_to_string(&file) {
-							Ok(text) => {
-								macro_rules! try_these {
-									($($type:ident,)+$(,)?) => {
-										$(
-											if let Ok(editor) = $type::new(&file, &text) {
-												self.editors.push(Box::new(editor));
-											} else
-										)+
-										{}
-									};
-								}
-
-								try_these!(
-									ItemEditor,
-									ClassEditor,
-									// This should always be last because it never fails.
-									TomlEditor,
-								);
-
-								self.opened_file = Some(file.to_path_buf());
-							}
-							Err(msg) => {
-								self.log = format!("Failed to open {}:\n{msg}", file.display());
-							}
-						}
-					}
-					self.open_file_dialog = None;
-					ui.close_menu();
-				}
-			}
-		});
-
-		if !self.log.is_empty() {
-			egui::TopBottomPanel::top("Log Panel").show(ctx, |ui| {
-				ui.label(&self.log);
-				if ui.button("Clear").clicked() {
-					self.log = String::new();
-				}
-			});
-		}
+		menu_bar::show(self, &mut toasts, ctx);
 
 		// New file window
 		if let Some(new_editor) = self.new_file_window.show(ctx) {
 			self.editors.push(new_editor);
+		}
+
+		SidePanel::left("Project Tree").show(ctx, |ui| {
+			if let Some(project) = &self.primary_project {
+				ui.heading(&project.name);
+			} else {
+				ui.label("No project loaded");
+			}
+			ui.separator();
+			for project in &self.local_projects {
+				if ui
+					.button(format!("{} ({})", project.name, project.path.display()))
+					.clicked()
+				{}
+			}
+			ui.separator();
+			if ui.button("Create new project").clicked() {
+				self.new_project_window.visible = true;
+			}
+			if ui.button("Add existing project").clicked() {
+				self.load_project_window.visible = true;
+			}
+		});
+
+		if let Some(new_project) = self.new_project_window.show(ctx) {
+			self.new_project_window.visible = false;
+			self.primary_project = Some(new_project);
+		}
+
+		match self.load_project_window.show(ctx) {
+			Ok(Some(project)) => {
+				self.load_project_window.visible = false;
+				self.primary_project = Some(project);
+			}
+			Err(msg) => {
+				toasts.add(error(msg.to_string().into()));
+			}
+			_ => {}
 		}
 
 		// Editor Windows
@@ -240,13 +157,13 @@ impl eframe::App for EditorApp {
 				""
 			};
 
-			egui::Window::new(format!("{}{}", self.editors[i].get_name(), star))
-				.id(egui::Id::new(self.editors[i].get_id()))
+			Window::new(format!("{}{}", self.editors[i].get_name(), star))
+				.id(Id::new(self.editors[i].get_id()))
 				.open(&mut is_open)
 				.show(ctx, |ui| {
 					ui.horizontal(|ui| {
 						if let Some(new_editor) =
-							editor_window_opts(&mut self.log, ui, &mut *self.editors[i])
+							editor_window_opts(&mut toasts, ui, &mut *self.editors[i])
 						{
 							close_requested = true;
 							self.editors.push(new_editor);
@@ -268,10 +185,13 @@ impl eframe::App for EditorApp {
 			} else if close_requested || !is_open {
 				if self.editors[i].has_changes() {
 					if let Err(msg) = self.editors[i].save() {
-						self.log = format!(
-							"Failed to save {}: {msg}",
-							self.editors[i].get_path().display()
-						);
+						toasts.add(error(
+							format!(
+								"Failed to save {}: {msg}",
+								self.editors[i].get_path().display()
+							)
+							.into(),
+						));
 					} else {
 						self.editors.remove(i);
 					}
@@ -281,7 +201,7 @@ impl eframe::App for EditorApp {
 			}
 		}
 
-		egui::CentralPanel::default().show(ctx, |ui| {
+		CentralPanel::default().show(ctx, |ui| {
 			let mut pop_out_requested = false;
 			let mut close_requested = false;
 
@@ -289,7 +209,7 @@ impl eframe::App for EditorApp {
 				ui.heading(editor.get_name());
 				ui.separator();
 				ui.horizontal(|ui| {
-					if let Some(new_editor) = editor_window_opts(&mut self.log, ui, &mut **editor) {
+					if let Some(new_editor) = editor_window_opts(&mut toasts, ui, &mut **editor) {
 						close_requested = true;
 						self.editors.push(new_editor);
 						return;
@@ -307,17 +227,21 @@ impl eframe::App for EditorApp {
 				self.primary_editor = None;
 			}
 		});
+
+		toasts.show(ctx);
 	}
 }
 
 fn editor_window_opts(
-	log: &mut String,
-	ui: &mut egui::Ui,
+	toasts: &mut Toasts,
+	ui: &mut Ui,
 	editor: &mut dyn editors::Editor,
 ) -> Option<Box<dyn Editor>> {
 	if ui.button("Save").clicked() {
 		if let Err(msg) = editor.save() {
-			*log = format!("Failed to save {}:\n{msg}", editor.get_path().display())
+			toasts.add(error(
+				format!("Failed to save {}:\n{msg}", editor.get_path().display()).into(),
+			));
 		}
 	}
 
@@ -327,10 +251,13 @@ fn editor_window_opts(
 				return Some(Box::new(toml_editor));
 			}
 			Err(msg) => {
-				*log = format!(
-					"Failed to reopen {} as TOML:\n{msg}\nHas the file moved?",
-					editor.get_path().display()
-				);
+				toasts.add(error(
+					format!(
+						"Failed to reopen {} as TOML:\n{msg}\nHas the file moved?",
+						editor.get_path().display()
+					)
+					.into(),
+				));
 			}
 		}
 	}

@@ -285,7 +285,7 @@ impl TomlEditor {
 		Ok(Self::new(path, &text).unwrap())
 	}
 
-	pub fn new(path: impl AsRef<Path>, text: &str) -> Result<Self, ()> {
+	pub fn new(path: impl AsRef<Path>, text: &str) -> anyhow::Result<Self> {
 		Ok(Self {
 			path: path.as_ref().to_path_buf(),
 			text: text.to_string(),

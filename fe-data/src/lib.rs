@@ -3,6 +3,7 @@ use std::fmt;
 use std::num::NonZeroU32;
 
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
 pub struct Stats {
 	// Growth stats
 	// Increase upon level up.
@@ -19,6 +20,7 @@ pub struct Stats {
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
 pub struct Class {
 	pub name: String,
 
@@ -61,6 +63,7 @@ pub struct Class {
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
 pub struct WeaponItem {
 	pub damage: u32,
 	pub weight: u32,
@@ -90,6 +93,7 @@ impl fmt::Display for ItemType {
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
 pub struct Item {
 	pub name: String,
 	pub value: Option<NonZeroU32>,
