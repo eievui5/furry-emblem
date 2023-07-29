@@ -1,9 +1,7 @@
 use egui::*;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io;
-use std::mem;
 use std::path::{Path, PathBuf};
+use std::{fs, io, mem};
 use thiserror::Error;
 
 pub const PROJECT_FILE: &str = "fe-project.toml";
@@ -40,6 +38,83 @@ impl Project {
 		let mut project: Self = toml::from_str(&project_file).map_err(|msg| Parse(msg))?;
 		project.path = path.to_path_buf();
 		Ok(project)
+	}
+}
+
+#[derive(Default)]
+pub struct ProjectManager {
+	pub local_projects: Vec<Project>,
+	pub primary_project: Option<Project>,
+	pub new_project_window: NewProjectWindow,
+	pub load_project_window: LoadProjectWindow,
+}
+
+impl ProjectManager {
+	pub fn new() -> Self {
+		let mut local_projects = Vec::new();
+
+		if let Ok(dir) = fs::read_dir(".") {
+			for entry in dir {
+				let Ok(entry) = entry else {
+					continue;
+				};
+
+				let fe_project = entry.path().join(PROJECT_FILE);
+
+				let Ok(toml) = fs::read_to_string(fe_project) else {
+					continue;
+				};
+
+				let Ok(mut project) = toml::from_str::<Project>(&toml) else {
+					continue;
+				};
+
+				project.path = entry.path();
+
+				local_projects.push(project);
+			}
+		}
+
+		Self {
+			local_projects,
+			..Default::default()
+		}
+	}
+
+	pub fn show(&mut self, ctx: &Context) -> Result<(), LoadProjectError> {
+		SidePanel::left("Project Tree").show(ctx, |ui| {
+			if let Some(project) = &self.primary_project {
+				ui.heading(&project.name);
+			} else {
+				ui.label("No project loaded");
+			}
+			ui.separator();
+			for project in &self.local_projects {
+				if ui
+					.button(format!("{} ({})", project.name, project.path.display()))
+					.clicked()
+				{}
+			}
+			ui.separator();
+			if ui.button("Create new project").clicked() {
+				self.new_project_window.visible = true;
+			}
+			if ui.button("Add existing project").clicked() {
+				self.load_project_window.visible = true;
+			}
+		});
+
+		if let Some(new_project) = self.new_project_window.show(ctx) {
+			self.new_project_window.visible = false;
+			self.primary_project = Some(new_project);
+		}
+
+		if let Some(project) = self.load_project_window.show(ctx)? {
+			self.load_project_window.visible = false;
+			self.primary_project = Some(project);
+		}
+
+		Ok(())
 	}
 }
 

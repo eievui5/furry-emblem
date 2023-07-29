@@ -4,3 +4,6 @@ members = [
 	"fe-editor",
 	"fe-data",
 ]
+
+[workspace.dependencies]
+fe-data = { path = "fe-data/" }

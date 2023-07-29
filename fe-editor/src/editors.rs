@@ -4,7 +4,18 @@ use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fs, io};
+use thiserror::Error;
 use uuid::Uuid;
+
+#[derive(Debug, Error)]
+pub enum EditorError {
+	#[error("Failed to open: {0}")]
+	Open(io::Error),
+	#[error("Failed to parse: {0}")]
+	Parse(anyhow::Error),
+	#[error("File did not match any expected formats")]
+	UnknownFormat,
+}
 
 pub trait Editor {
 	// Required methods.

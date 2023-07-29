@@ -1,47 +1,64 @@
 use crate::editors::*;
-use crate::error;
-use crate::{EditorApp, FILE_TYPE_STRINGS};
+use crate::new_file_window::{NewFileWindow, FILE_TYPE_STRINGS};
 use egui::*;
-use egui_toast::Toasts;
 use paste::paste;
 use std::fs;
+use std::path::PathBuf;
 
-pub fn show(app: &mut EditorApp, toasts: &mut Toasts, ctx: &egui::Context) {
+#[derive(Default)]
+pub struct FileTab {
+	pub open_file_dialog: Option<egui_file::FileDialog>,
+	pub new_file_window: NewFileWindow,
+	pub opened_file: Option<PathBuf>,
+}
+
+#[derive(Default)]
+pub struct OptionsTab {
+	pub light_mode: bool,
+}
+
+type ShowResult = Result<Option<Box<dyn Editor>>, EditorError>;
+
+pub fn show(file_tab: &mut FileTab, options: &mut OptionsTab, ctx: &egui::Context) -> ShowResult {
+	use EditorError::*;
+
+	let mut result: ShowResult = Ok(None);
+
 	TopBottomPanel::top("Menu Bar").show(ctx, |ui| {
 		ui.horizontal(|ui| {
 			ui.menu_button("File", |ui| {
 				ui.menu_button("New", |ui| {
 					for (i, name) in FILE_TYPE_STRINGS.iter().enumerate() {
 						if ui.button(*name).clicked() {
-							app.new_file_window.open(i);
+							file_tab.new_file_window.open(i);
 							ui.close_menu();
 						}
 					}
 				});
 				if ui.button("Open").clicked() {
-					let mut dialog = egui_file::FileDialog::save_file(app.opened_file.clone());
+					let mut dialog = egui_file::FileDialog::save_file(file_tab.opened_file.clone());
 					dialog.open();
-					app.open_file_dialog = Some(dialog);
+					file_tab.open_file_dialog = Some(dialog);
 					ui.close_menu();
 				}
 			});
 
 			ui.menu_button("Options", |ui| {
-				if app.light_mode {
+				if options.light_mode {
 					if ui.button("Switch to Dark Mode").clicked() {
-						app.light_mode = false;
+						options.light_mode = false;
 						ctx.set_visuals(Visuals::dark());
 						ui.close_menu();
 					}
 				} else if ui.button("Switch to Light Mode").clicked() {
-					app.light_mode = true;
+					options.light_mode = true;
 					ctx.set_visuals(Visuals::light());
 					ui.close_menu();
 				}
 			});
 		});
 
-		if let Some(dialog) = &mut app.open_file_dialog {
+		if let Some(dialog) = &mut file_tab.open_file_dialog {
 			if dialog.show(ctx).selected() {
 				if let Some(file) = dialog.path() {
 					match fs::read_to_string(&file) {
@@ -54,16 +71,18 @@ pub fn show(app: &mut EditorApp, toasts: &mut Toasts, ctx: &egui::Context) {
 										if file_name.contains(concat!(".", stringify!($type))) {
 											paste! {
 												match [<$type:camel Editor>]::new(&file, &text) {
-													Ok(editor) => app.editors.push(Box::new(editor)),
+													Ok(editor) => {
+														result = Ok(Some(Box::new(editor)));
+													}
 													Err(msg) => {
-														toasts.add(error(format!("Failed to parse {}:\n{msg}", file.display()).into()));
+														result = Err(Parse(msg));
 													}
 												}
 											}
 										} else
 									)+
 									{
-										toasts.add(error(format!("{} did not match any expected formats", file.display()).into()));
+										result = Err(UnknownFormat);
 									}
 								};
 							}
@@ -74,18 +93,18 @@ pub fn show(app: &mut EditorApp, toasts: &mut Toasts, ctx: &egui::Context) {
 								toml,
 							);
 
-							app.opened_file = Some(file.to_path_buf());
+							file_tab.opened_file = Some(file.to_path_buf());
 						}
 						Err(msg) => {
-							toasts.add(error(
-								format!("Failed to open {}:\n{msg}", file.display()).into(),
-							));
+							result = Err(Open(msg));
 						}
 					}
 				}
-				app.open_file_dialog = None;
+				file_tab.open_file_dialog = None;
 				ui.close_menu();
 			}
 		}
 	});
+
+	result
 }
