@@ -1,4 +1,5 @@
 use fe_data::*;
+use paste::paste;
 use std::borrow::Cow;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
@@ -6,6 +7,39 @@ use std::str::FromStr;
 use std::{fs, io};
 use thiserror::Error;
 use uuid::Uuid;
+
+pub fn open_editor(file: &Path, text: &str) -> Result<Box<dyn Editor>, EditorError> {
+	use EditorError::*;
+
+	let file_name = file.to_string_lossy();
+
+	macro_rules! try_these {
+		($($type:ident,)+$(,)?) => {
+			$(
+				if file_name.contains(concat!(".", stringify!($type))) {
+					paste! {
+						match [<$type:camel Editor>]::new(file, text) {
+							Ok(editor) => {
+								return Ok(Box::new(editor));
+							}
+							Err(msg) => {
+								return Err(Parse(msg));
+							}
+						}
+					}
+				} else
+			)+
+			{
+				return Err(UnknownFormat);
+			}
+		};
+	}
+
+	try_these!(
+		item, class, // This should always be last because it never fails.
+		toml,
+	);
+}
 
 #[derive(Debug, Error)]
 pub enum EditorError {

@@ -2,6 +2,13 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::NonZeroU32;
 
+#[cfg(feature = "stata")]
+use {
+	quote::quote,
+	stata::{Resource, ToStatic, TokenStream},
+};
+
+#[cfg_attr(feature = "stata", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Stats {
@@ -19,6 +26,7 @@ pub struct Stats {
 	pub reflexes: i32,
 }
 
+#[cfg_attr(feature = "stata", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Class {
@@ -62,6 +70,7 @@ pub struct Class {
 	pub agile: bool,
 }
 
+#[cfg_attr(feature = "stata", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct WeaponItem {
@@ -78,6 +87,39 @@ pub enum ItemType {
 	Weapon(WeaponItem),
 }
 
+#[cfg(feature = "stata")]
+impl ToStatic for ItemType {
+	fn static_type() -> TokenStream {
+		quote!(ItemType)
+	}
+	fn static_value(&self) -> TokenStream {
+		use ItemType::*;
+
+		match self {
+			None => quote!(ItemType::None),
+			Weapon(item) => {
+				let item = item.static_value();
+				quote!(ItemType::Weapon(#item))
+			}
+		}
+	}
+}
+
+#[cfg(feature = "stata")]
+impl Resource for ItemType {
+	fn static_struct() -> TokenStream {
+		quote! {
+			#[derive(Clone, Debug, Default)]
+			pub enum ItemType {
+				// Does nothing.
+				#[default]
+				None,
+				Weapon(WeaponItem),
+			}
+		}
+	}
+}
+
 impl fmt::Display for ItemType {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
 		use ItemType::*;
@@ -92,6 +134,7 @@ impl fmt::Display for ItemType {
 	}
 }
 
+#[cfg_attr(feature = "stata", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Item {

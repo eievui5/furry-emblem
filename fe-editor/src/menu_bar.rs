@@ -1,7 +1,6 @@
 use crate::editors::*;
 use crate::new_file_window::{NewFileWindow, FILE_TYPE_STRINGS};
 use egui::*;
-use paste::paste;
 use std::fs;
 use std::path::PathBuf;
 
@@ -63,35 +62,7 @@ pub fn show(file_tab: &mut FileTab, options: &mut OptionsTab, ctx: &egui::Contex
 				if let Some(file) = dialog.path() {
 					match fs::read_to_string(&file) {
 						Ok(text) => {
-							let file_name = file.to_string_lossy();
-
-							macro_rules! try_these {
-								($($type:ident,)+$(,)?) => {
-									$(
-										if file_name.contains(concat!(".", stringify!($type))) {
-											paste! {
-												match [<$type:camel Editor>]::new(&file, &text) {
-													Ok(editor) => {
-														result = Ok(Some(Box::new(editor)));
-													}
-													Err(msg) => {
-														result = Err(Parse(msg));
-													}
-												}
-											}
-										} else
-									)+
-									{
-										result = Err(UnknownFormat);
-									}
-								};
-							}
-
-							try_these!(
-								item, class,
-								// This should always be last because it never fails.
-								toml,
-							);
+							result = open_editor(&file, &text).map(|e| Some(e));
 
 							file_tab.opened_file = Some(file.to_path_buf());
 						}

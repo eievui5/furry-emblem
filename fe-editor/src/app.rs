@@ -1,9 +1,11 @@
-use crate::editors::{self, Editor, TomlEditor};
+use crate::close_handler::{CloseHandler, CloseHandlerResponse};
+use crate::editors::{open_editor, Editor, TomlEditor};
 use crate::menu_bar::{self, FileTab, OptionsTab};
 use crate::project::*;
 use egui::*;
 use egui_toast::*;
-use std::mem;
+use std::iter::Chain;
+use std::{fs, mem, option, slice};
 
 const TOAST_LENGTH: f64 = 5.0;
 
@@ -18,25 +20,63 @@ fn error(text: impl ToString) -> Toast {
 	}
 }
 
+fn show_project_manager(app: &mut EditorApp, ctx: &Context) -> anyhow::Result<()> {
+	if let Some(path) = app.project_manager.show(ctx)? {
+		let text = fs::read_to_string(&path)?;
+		let editor = open_editor(&path, &text)?;
+		app.editors.push(editor);
+	}
+	Ok(())
+}
+
 #[derive(Default)]
 pub struct EditorApp {
-	pub file: FileTab,
-	pub options: OptionsTab,
+	file: FileTab,
+	options: OptionsTab,
+	project_manager: ProjectManager,
+	close_handler: CloseHandler,
 	// Editor management
-	pub primary_editor: Option<Box<dyn Editor>>,
-	pub editors: Vec<Box<dyn Editor>>,
-	// Project management
-	pub project_manager: ProjectManager,
+	primary_editor: Option<Box<dyn Editor>>,
+	editors: Vec<Box<dyn Editor>>,
 }
 
 impl EditorApp {
 	pub fn new() -> Self {
-		Self::default()
+		Self {
+			project_manager: ProjectManager::new(),
+			..Default::default()
+		}
+	}
+
+	pub fn editors(
+		&mut self,
+	) -> Chain<slice::IterMut<'_, Box<dyn Editor>>, option::IterMut<'_, Box<dyn Editor>>> {
+		self.editors
+			.iter_mut()
+			.chain(self.primary_editor.iter_mut())
 	}
 }
 
 impl eframe::App for EditorApp {
-	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+	fn on_close_event(&mut self) -> bool {
+		if self.close_handler.force_close {
+			return true;
+		}
+
+		let mut allowed_to_close = true;
+
+		for editor in self.editors() {
+			if editor.has_changes() {
+				allowed_to_close = false;
+			}
+		}
+		if !allowed_to_close {
+			self.close_handler.visible = true;
+		}
+		allowed_to_close
+	}
+
+	fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
 		// Keep this function as small as possible.
 		// Anything substantial should be refactored elsewhere.
 		// Make sure to move any member variables out of EditorApp too, if possible.
@@ -57,8 +97,29 @@ impl eframe::App for EditorApp {
 			self.editors.push(new_editor);
 		}
 
-		if let Err(msg) = self.project_manager.show(ctx) {
+		if let Err(msg) = show_project_manager(self, ctx) {
 			toasts.add(error(msg));
+		}
+
+		if let Some(response) = self.close_handler.show(ctx) {
+			use CloseHandlerResponse::*;
+
+			match response {
+				Exit => {
+					self.close_handler.force_close = true;
+					frame.close();
+				}
+				SaveAndExit => {
+					for editor in self.editors() {
+						if let Err(msg) = editor.save() {
+							toasts.add(error(msg));
+						}
+					}
+
+					frame.close();
+				}
+				Cancel => self.close_handler.visible = false,
+			}
 		}
 
 		// Editor Windows
@@ -99,15 +160,11 @@ impl eframe::App for EditorApp {
 					self.primary_editor = Some(self.editors.remove(i));
 				}
 			} else if close_requested || !is_open {
-				if self.editors[i].has_changes() {
-					if let Err(msg) = self.editors[i].save() {
-						toasts.add(error(format!(
-							"Failed to save {}: {msg}",
-							self.editors[i].get_path().display()
-						)));
-					} else {
-						self.editors.remove(i);
-					}
+				if let Err(msg) = self.editors[i].save() {
+					toasts.add(error(format!(
+						"Failed to save {}: {msg}",
+						self.editors[i].get_path().display()
+					)));
 				} else {
 					self.editors.remove(i);
 				}
@@ -133,11 +190,19 @@ impl eframe::App for EditorApp {
 				ui.separator();
 				editor.show(ui);
 			}
+
 			if pop_out_requested {
 				let this_editor = self.primary_editor.take().unwrap();
 				self.editors.push(this_editor);
 			} else if close_requested {
-				self.primary_editor = None;
+				if let Err(msg) = self.primary_editor.as_mut().unwrap().save() {
+					toasts.add(error(format!(
+						"Failed to save {}: {msg}",
+						self.primary_editor.as_mut().unwrap().get_path().display()
+					)));
+				} else {
+					self.primary_editor = None;
+				}
 			}
 		});
 
@@ -148,7 +213,7 @@ impl eframe::App for EditorApp {
 pub fn editor_window_opts(
 	toasts: &mut Toasts,
 	ui: &mut Ui,
-	editor: &mut dyn editors::Editor,
+	editor: &mut dyn Editor,
 ) -> Option<Box<dyn Editor>> {
 	if ui.button("Save").clicked() {
 		if let Err(msg) = editor.save() {
