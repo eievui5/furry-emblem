@@ -79,11 +79,20 @@ pub trait Editor {
 	}
 }
 
+#[derive(Debug, Error)]
+enum SaveAsError {
+	#[error("Cannot save a file with no name!")]
+	NoName,
+}
+
 macro_rules! impl_save_as {
 	($type:ident) => {
 		paste! {
 			fn save_as<'a>(&'a mut self, mut path: &'a Path) -> anyhow::Result<()> {
 				if path.is_dir() {
+					if self.$type.name.is_empty() {
+						Err(SaveAsError::NoName)?;
+					}
 					self.path = path.join(format!("{}.{}.toml", self.$type.name, stringify!($type)));
 					path = &self.path;
 				}
