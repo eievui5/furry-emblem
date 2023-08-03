@@ -16,12 +16,22 @@ pub struct OptionsTab {
 	pub light_mode: bool,
 }
 
-type ShowResult = Result<Option<Box<dyn Editor>>, EditorError>;
+pub enum MenuBarResponse {
+	NewEditor(Box<dyn Editor>),
+	SaveAll,
+}
 
-pub fn show(file_tab: &mut FileTab, options: &mut OptionsTab, ctx: &egui::Context) -> ShowResult {
+type MenuBarResult = Result<Option<MenuBarResponse>, EditorError>;
+
+pub fn show(
+	file_tab: &mut FileTab,
+	options: &mut OptionsTab,
+	ctx: &egui::Context,
+) -> MenuBarResult {
 	use EditorError::*;
+	use MenuBarResponse::*;
 
-	let mut result: ShowResult = Ok(None);
+	let mut result: MenuBarResult = Ok(None);
 
 	TopBottomPanel::top("Menu Bar").show(ctx, |ui| {
 		ui.horizontal(|ui| {
@@ -38,6 +48,10 @@ pub fn show(file_tab: &mut FileTab, options: &mut OptionsTab, ctx: &egui::Contex
 					let mut dialog = egui_file::FileDialog::save_file(file_tab.opened_file.clone());
 					dialog.open();
 					file_tab.open_file_dialog = Some(dialog);
+					ui.close_menu();
+				}
+				if ui.button("Save All").clicked() {
+					result = Ok(Some(SaveAll));
 					ui.close_menu();
 				}
 			});
@@ -62,7 +76,7 @@ pub fn show(file_tab: &mut FileTab, options: &mut OptionsTab, ctx: &egui::Contex
 				if let Some(file) = dialog.path() {
 					match fs::read_to_string(&file) {
 						Ok(text) => {
-							result = open_editor(&file, &text).map(|e| Some(e));
+							result = open_editor(&file, &text).map(|e| Some(NewEditor(e)));
 
 							file_tab.opened_file = Some(file.to_path_buf());
 						}

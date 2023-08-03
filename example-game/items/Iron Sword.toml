@@ -1,4 +1,5 @@
 name = "Iron Sword"
+description = ""
 value = 69
 
 [type.Weapon]

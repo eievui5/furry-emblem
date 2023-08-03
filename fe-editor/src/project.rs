@@ -1,5 +1,7 @@
+use crate::editors::*;
 use egui::*;
 use fe_data::*;
+use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::{fs, io, mem};
@@ -17,45 +19,62 @@ pub enum LoadProjectError {
 	OpenContent(anyhow::Error),
 }
 
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct ClassPreview {
 	content: Class,
 	path: PathBuf,
 }
 
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct ItemPreview {
 	content: Item,
 	path: PathBuf,
 }
 
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct Project {
 	info: ProjectInfo,
 	classes: Vec<ClassPreview>,
 	items: Vec<ItemPreview>,
 }
 
+pub enum ProjectShowResponse {
+	None,
+	Open(PathBuf),
+	New(Box<dyn Editor>),
+}
+
 impl Project {
-	fn show(&self, ui: &mut Ui) -> Option<PathBuf> {
+	fn show(&self, ui: &mut Ui) -> ProjectShowResponse {
+		use ProjectShowResponse::*;
+
 		let mut result = None;
 
-		if !self.classes.is_empty() {
-			ui.label("Classes");
-			for i in &self.classes {
-				if ui.button(&i.content.name).clicked() {
-					result = Some(i.path.clone());
+		macro_rules! show_type {
+			($member:ident, $editor:ident) => {
+				paste! {
+					if !self.$member.is_empty() {
+						ui.collapsing(stringify!([<$member:camel>]), |ui| {
+							for i in &self.$member {
+								if ui.button(&i.content.name).clicked() {
+									result = Open(i.path.clone());
+								}
+							}
+							ui.separator();
+							if ui.button("Create New").clicked() {
+								let mut editor = $editor::default();
+								editor.path = self.info.path.join(stringify!($member)).to_path_buf();
+								result = New(Box::new(editor));
+							}
+						});
+						ui.separator();
+					}
 				}
-			}
-			ui.separator();
+			};
 		}
 
-		if !self.items.is_empty() {
-			ui.label("Items");
-			for i in &self.items {
-				if ui.button(&i.content.name).clicked() {
-					result = Some(i.path.clone());
-				}
-			}
-			ui.separator();
-		}
+		show_type!(classes, ClassEditor);
+		show_type!(items, ItemEditor);
 
 		result
 	}
@@ -126,12 +145,18 @@ impl ProjectInfo {
 #[derive(Default)]
 pub struct ProjectManager {
 	pub local_projects: Vec<ProjectInfo>,
+	pub source_project: Option<Project>,
 	pub primary_project: Option<Project>,
 	pub new_project_window: NewProjectWindow,
 	pub load_project_window: LoadProjectWindow,
 }
 
 impl ProjectManager {
+	pub fn set_project(&mut self, project: Project) {
+		self.primary_project = Some(project.clone());
+		self.source_project = Some(project)
+	}
+
 	pub fn new() -> Self {
 		let mut local_projects = Vec::new();
 
@@ -163,14 +188,14 @@ impl ProjectManager {
 		}
 	}
 
-	pub fn show(&mut self, ctx: &Context) -> Result<Option<PathBuf>, LoadProjectError> {
+	pub fn show(&mut self, ctx: &Context) -> Result<ProjectShowResponse, LoadProjectError> {
 		use LoadProjectError::*;
 
-		let mut result = Ok(None);
+		let mut result = Ok(ProjectShowResponse::None);
 
 		SidePanel::left("Project Tree").show(ctx, |ui| {
-			if let Some(project) = &self.primary_project {
-				ui.heading(&project.info.name);
+			if let Some(project) = &mut self.primary_project {
+				ui.text_edit_singleline(&mut project.info.name);
 				ui.separator();
 				result = Ok(project.show(ui));
 			} else {
@@ -181,8 +206,11 @@ impl ProjectManager {
 						.button(format!("{} ({})", project.name, project.path.display()))
 						.clicked()
 					{
-						match project.clone().try_into() {
-							Ok(project) => self.primary_project = Some(project),
+						match TryInto::<Project>::try_into(project.clone()) {
+							Ok(project) => {
+								self.set_project(project);
+								break;
+							}
 							Err(msg) => result = Err(OpenContent(msg)),
 						}
 					}
@@ -200,7 +228,7 @@ impl ProjectManager {
 		if let Some(new_project) = self.new_project_window.show(ctx) {
 			self.new_project_window.visible = false;
 			match new_project.clone().try_into() {
-				Ok(project) => self.primary_project = Some(project),
+				Ok(project) => self.set_project(project),
 				Err(msg) => result = Err(OpenContent(msg)),
 			}
 		}
@@ -208,12 +236,25 @@ impl ProjectManager {
 		if let Some(project) = self.load_project_window.show(ctx)? {
 			self.load_project_window.visible = false;
 			match project.clone().try_into() {
-				Ok(project) => self.primary_project = Some(project),
+				Ok(project) => self.set_project(project),
 				Err(msg) => result = Err(OpenContent(msg)),
 			}
 		}
 
 		result
+	}
+
+	pub fn has_changes(&self) -> bool {
+		self.source_project != self.primary_project
+	}
+
+	pub fn save(&mut self) -> anyhow::Result<()> {
+		if let Some(primary_project) = &self.primary_project {
+			let text = toml::to_string(&primary_project.info)?;
+			fs::write(primary_project.info.path.join(PROJECT_FILE), text)?;
+			self.source_project = Some(primary_project.clone());
+		}
+		Ok(())
 	}
 }
 

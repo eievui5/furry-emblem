@@ -1,0 +1,4 @@
+name = "Apple"
+description = "Restores a small amount of HP."
+value = 50
+type = "None"

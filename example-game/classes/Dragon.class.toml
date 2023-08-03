@@ -1,0 +1,35 @@
+name = "Dragon"
+description = ""
+canter = false
+shove = false
+pass = false
+leap = false
+pull = false
+focus = false
+crit_boost = false
+battle_canter = false
+ferry = false
+zone_of_control = false
+armored = false
+flying = false
+agile = false
+
+[bases]
+hp = 0
+power = 0
+defense = 0
+resistance = 0
+dexterity = 0
+movement = 0
+constitution = 0
+reflexes = 0
+
+[growths]
+hp = 0
+power = 0
+defense = 0
+resistance = 0
+dexterity = 0
+movement = 0
+constitution = 0
+reflexes = 0

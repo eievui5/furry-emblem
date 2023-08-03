@@ -31,6 +31,7 @@ pub struct Stats {
 #[serde(default)]
 pub struct Class {
 	pub name: String,
+	pub description: String,
 
 	/// Base stats for a given class.
 	/// Individual characters should offset this to provide some more unique spreads.
@@ -139,6 +140,7 @@ impl fmt::Display for ItemType {
 #[serde(default)]
 pub struct Item {
 	pub name: String,
+	pub description: String,
 	pub value: Option<NonZeroU32>,
 	#[serde(rename = "type")]
 	pub ty: ItemType,

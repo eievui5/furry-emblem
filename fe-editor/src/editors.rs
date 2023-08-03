@@ -79,6 +79,24 @@ pub trait Editor {
 	}
 }
 
+macro_rules! impl_save_as {
+	($type:ident) => {
+		paste! {
+			fn save_as<'a>(&'a mut self, mut path: &'a Path) -> anyhow::Result<()> {
+				if path.is_dir() {
+					self.path = path.join(format!("{}.{}.toml", self.$type.name, stringify!($type)));
+					path = &self.path;
+				}
+				let text = toml::to_string(&self.$type)?;
+				fs::write(path, text)?;
+				self.[<source_ $type>] = Some(self.$type.clone());
+				Ok(())
+			}
+		}
+	};
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct ClassEditor {
 	pub path: PathBuf,
 	pub class: Class,
@@ -156,10 +174,22 @@ impl Editor for ClassEditor {
 		self.id
 	}
 
+	fn has_changes(&self) -> bool {
+		self.source_class
+			.as_ref()
+			.map_or(true, |s| self.class != *s)
+	}
+
+	impl_save_as!(class);
+
 	fn show(&mut self, ui: &mut egui::Ui) {
 		egui::Grid::new("Class Grid").striped(true).show(ui, |ui| {
 			ui.label("Name:");
 			ui.text_edit_singleline(&mut self.class.name);
+			ui.end_row();
+
+			ui.label("Description:");
+			ui.text_edit_multiline(&mut self.class.description);
 			ui.end_row();
 
 			stat_editor("Bases:", &mut self.class.bases, ui);
@@ -202,24 +232,13 @@ impl Editor for ClassEditor {
 				ui.end_row();
 			});
 	}
-
-	fn save_as(&mut self, path: &Path) -> anyhow::Result<()> {
-		let text = toml::to_string(&self.class)?;
-		fs::write(path, text)?;
-		self.source_class = Some(self.class.clone());
-		Ok(())
-	}
-
-	fn has_changes(&self) -> bool {
-		self.source_class
-			.as_ref()
-			.map_or(true, |s| self.class != *s)
-	}
 }
 
+#[derive(Clone, Debug, Default)]
 pub struct ItemEditor {
 	pub path: PathBuf,
 	pub item: fe_data::Item,
+	pub source_item: Option<fe_data::Item>,
 	pub id: Uuid,
 }
 
@@ -228,15 +247,18 @@ impl ItemEditor {
 		Box::new(Self {
 			path: path.to_path_buf(),
 			item: Default::default(),
+			source_item: None,
 			id: Uuid::new_v4(),
 		})
 	}
 
 	pub fn new(path: impl AsRef<Path>, text: &str) -> anyhow::Result<Self> {
-		let item = toml::from_str(&text)?;
+		let item: Item = toml::from_str(&text)?;
+		let source_item = Some(item.clone());
 		Ok(Self {
 			path: path.as_ref().to_path_buf(),
 			item,
+			source_item,
 			id: Uuid::new_v4(),
 		})
 	}
@@ -251,6 +273,12 @@ impl Editor for ItemEditor {
 		self.id
 	}
 
+	fn has_changes(&self) -> bool {
+		self.source_item.as_ref().map_or(true, |i| *i != self.item)
+	}
+
+	impl_save_as!(item);
+
 	fn show(&mut self, ui: &mut egui::Ui) {
 		egui::Grid::new(0)
 			.min_col_width(100.0)
@@ -258,6 +286,10 @@ impl Editor for ItemEditor {
 			.show(ui, |ui| {
 				ui.label("Name:");
 				ui.text_edit_singleline(&mut self.item.name);
+				ui.end_row();
+
+				ui.label("Description:");
+				ui.text_edit_multiline(&mut self.item.description);
 				ui.end_row();
 
 				let mut is_sellable = self.item.value.is_some();
@@ -309,12 +341,6 @@ impl Editor for ItemEditor {
 					_ => {}
 				}
 			});
-	}
-
-	fn save_as(&mut self, path: &Path) -> anyhow::Result<()> {
-		let text = toml::to_string(&self.item)?;
-		fs::write(path, text)?;
-		Ok(())
 	}
 }
 

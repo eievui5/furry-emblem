@@ -1,4 +1,5 @@
 name = "Dog"
+description = "Durable warriors known for their strength."
 canter = false
 shove = false
 pass = false

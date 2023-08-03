@@ -1,4 +1,5 @@
 name = "Cat"
+description = "Agile fighters with a natural resistance to magic."
 canter = false
 shove = true
 pass = false

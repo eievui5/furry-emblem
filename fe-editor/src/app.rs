@@ -1,6 +1,6 @@
 use crate::close_handler::{CloseHandler, CloseHandlerResponse};
 use crate::editors::{open_editor, Editor, TomlEditor};
-use crate::menu_bar::{self, FileTab, OptionsTab};
+use crate::menu_bar::{self, FileTab, MenuBarResponse, OptionsTab};
 use crate::project::*;
 use egui::*;
 use egui_toast::*;
@@ -8,6 +8,8 @@ use std::iter::Chain;
 use std::{fs, mem, option, slice};
 
 const TOAST_LENGTH: f64 = 5.0;
+const APP_NAME: &str = "Furry Emblem Editor";
+const APP_NAME_CHANGED: &str = "Furry Emblem Editor *";
 
 fn error(text: impl ToString) -> Toast {
 	Toast {
@@ -21,10 +23,18 @@ fn error(text: impl ToString) -> Toast {
 }
 
 fn show_project_manager(app: &mut EditorApp, ctx: &Context) -> anyhow::Result<()> {
-	if let Some(path) = app.project_manager.show(ctx)? {
-		let text = fs::read_to_string(&path)?;
-		let editor = open_editor(&path, &text)?;
-		app.editors.push(editor);
+	use ProjectShowResponse::*;
+
+	match app.project_manager.show(ctx)? {
+		None => {}
+		Open(path) => {
+			let text = fs::read_to_string(&path)?;
+			let editor = open_editor(&path, &text)?;
+			app.editors.push(editor);
+		}
+		New(editor) => {
+			app.editors.push(editor);
+		}
 	}
 	Ok(())
 }
@@ -55,6 +65,24 @@ impl EditorApp {
 			.iter_mut()
 			.chain(self.primary_editor.iter_mut())
 	}
+
+	fn has_changes(&mut self) -> bool {
+		self.project_manager.has_changes()
+			|| (!self.editors.is_empty()
+				&& self.editors().filter(|e| e.has_changes()).next().is_some())
+	}
+
+	fn save(&mut self) -> anyhow::Result<()> {
+		if self.project_manager.has_changes() {
+			self.project_manager.save()?;
+		}
+		for i in self.editors() {
+			if i.has_changes() {
+				i.save()?;
+			}
+		}
+		Ok(())
+	}
 }
 
 impl eframe::App for EditorApp {
@@ -63,16 +91,12 @@ impl eframe::App for EditorApp {
 			return true;
 		}
 
-		let mut allowed_to_close = true;
+		let allowed_to_close = !self.has_changes();
 
-		for editor in self.editors() {
-			if editor.has_changes() {
-				allowed_to_close = false;
-			}
-		}
 		if !allowed_to_close {
 			self.close_handler.visible = true;
 		}
+
 		allowed_to_close
 	}
 
@@ -88,8 +112,25 @@ impl eframe::App for EditorApp {
 			.anchor(Align2::CENTER_TOP, (0.0, 10.0))
 			.direction(Direction::TopDown);
 
-		if let Err(msg) = menu_bar::show(&mut self.file, &mut self.options, ctx) {
-			toasts.add(error(msg));
+		frame.set_window_title(if self.has_changes() {
+			APP_NAME_CHANGED
+		} else {
+			APP_NAME
+		});
+
+		match menu_bar::show(&mut self.file, &mut self.options, ctx) {
+			Ok(Some(MenuBarResponse::NewEditor(editor))) => {
+				self.editors.push(editor);
+			}
+			Ok(Some(MenuBarResponse::SaveAll)) => {
+				if let Err(msg) = self.save() {
+					toasts.add(error(msg));
+				}
+			}
+			Ok(None) => {}
+			Err(msg) => {
+				toasts.add(error(msg));
+			}
 		}
 
 		// New file window
@@ -110,13 +151,11 @@ impl eframe::App for EditorApp {
 					frame.close();
 				}
 				SaveAndExit => {
-					for editor in self.editors() {
-						if let Err(msg) = editor.save() {
-							toasts.add(error(msg));
-						}
+					if let Err(msg) = self.save() {
+						toasts.add(error(msg));
+					} else {
+						frame.close();
 					}
-
-					frame.close();
 				}
 				Cancel => self.close_handler.visible = false,
 			}
