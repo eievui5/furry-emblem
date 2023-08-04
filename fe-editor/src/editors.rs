@@ -81,7 +81,7 @@ pub trait Editor {
 
 #[derive(Debug, Error)]
 enum SaveAsError {
-	#[error("Cannot save a file with no name!")]
+	#[error("Cannot save a file with no name! (Hold shift to close without saving)")]
 	NoName,
 }
 

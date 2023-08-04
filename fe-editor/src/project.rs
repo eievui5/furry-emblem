@@ -1,9 +1,11 @@
 use crate::editors::*;
 use egui::*;
 use fe_data::*;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{channel, Receiver};
 use std::{fs, io, mem};
 use thiserror::Error;
 
@@ -41,6 +43,7 @@ pub struct Project {
 pub enum ProjectShowResponse {
 	None,
 	Open(PathBuf),
+	Delete(PathBuf),
 	New(Box<dyn Editor>),
 }
 
@@ -56,9 +59,14 @@ impl Project {
 					if !self.$member.is_empty() {
 						ui.collapsing(stringify!([<$member:camel>]), |ui| {
 							for i in &self.$member {
-								if ui.button(&i.content.name).clicked() {
-									result = Open(i.path.clone());
-								}
+								ui.horizontal(|ui| {
+									if ui.link("\u{1F5D9}").clicked() {
+										result = Delete(i.path.clone());
+									}
+									if ui.button(&i.content.name).clicked() {
+										result = Open(i.path.clone());
+									}
+								});
 							}
 							ui.separator();
 							if ui.button("Create New").clicked() {
@@ -78,20 +86,17 @@ impl Project {
 
 		result
 	}
-}
 
-impl TryFrom<ProjectInfo> for Project {
-	type Error = anyhow::Error;
-
-	fn try_from(info: ProjectInfo) -> Result<Self, anyhow::Error> {
+	fn populate(&mut self) -> Result<(), anyhow::Error> {
 		macro_rules! load_dir {
 			($path:ident, $type:ident, $preview:ident) => {
-				if let Ok(dir) = fs::read_dir(info.path.join(stringify!($path))) {
+				if let Ok(dir) = fs::read_dir(self.info.path.join(stringify!($path))) {
+					self.$path.clear();
 					for entry in dir {
 						let entry = entry?;
 						let entry_path = entry.path();
 						if !entry_path.is_dir() {
-							$path.push($preview {
+							self.$path.push($preview {
 								content: toml::from_str::<$type>(&fs::read_to_string(
 									&entry_path,
 								)?)?,
@@ -102,16 +107,25 @@ impl TryFrom<ProjectInfo> for Project {
 				}
 			};
 		}
-		let mut classes = Vec::new();
 		load_dir!(classes, Class, ClassPreview);
-		let mut items = Vec::new();
 		load_dir!(items, Item, ItemPreview);
+		Ok(())
+	}
+}
 
-		Ok(Self {
-			classes,
-			items,
+impl TryFrom<ProjectInfo> for Project {
+	type Error = anyhow::Error;
+
+	fn try_from(info: ProjectInfo) -> Result<Self, anyhow::Error> {
+		let mut project = Self {
+			classes: Vec::new(),
+			items: Vec::new(),
 			info,
-		})
+		};
+
+		project.populate()?;
+
+		Ok(project)
 	}
 }
 
@@ -142,19 +156,39 @@ impl ProjectInfo {
 	}
 }
 
-#[derive(Default)]
 pub struct ProjectManager {
 	pub local_projects: Vec<ProjectInfo>,
-	pub source_project: Option<Project>,
+	pub source_project: Option<ProjectInfo>,
 	pub primary_project: Option<Project>,
 	pub new_project_window: NewProjectWindow,
 	pub load_project_window: LoadProjectWindow,
+	pub folder_watcher: Option<RecommendedWatcher>,
+	pub needs_update: Option<Receiver<notify::Result<notify::Event>>>,
 }
 
 impl ProjectManager {
 	pub fn set_project(&mut self, project: Project) {
-		self.primary_project = Some(project.clone());
-		self.source_project = Some(project)
+		let (sender, needs_update) = channel();
+
+		self.folder_watcher = notify::recommended_watcher(move |res| {
+			if let Err(msg) = sender.send(res) {
+				// There's no real way to handle this, but we can at least print an error message.
+				// Ideally we'd show a toast but clearly cross-thread communication isn't working so that's not an option.
+				eprintln!("Failed to notify main thread of folder update: {msg}");
+			}
+		})
+		.ok();
+
+		if let Some(folder_watcher) = &mut self.folder_watcher {
+			if let Err(msg) = folder_watcher.watch(&project.info.path, RecursiveMode::Recursive) {
+				eprintln!("Failed to watch {}: {msg}", project.info.path.display());
+			}
+		}
+
+		self.source_project = Some(project.info.clone());
+		self.primary_project = Some(project);
+
+		self.needs_update = Some(needs_update);
 	}
 
 	pub fn new() -> Self {
@@ -184,7 +218,12 @@ impl ProjectManager {
 
 		Self {
 			local_projects,
-			..Default::default()
+			source_project: None,
+			primary_project: None,
+			new_project_window: NewProjectWindow::default(),
+			load_project_window: LoadProjectWindow::default(),
+			folder_watcher: None,
+			needs_update: None,
 		}
 	}
 
@@ -192,6 +231,16 @@ impl ProjectManager {
 		use LoadProjectError::*;
 
 		let mut result = Ok(ProjectShowResponse::None);
+
+		if let (Some(primary_project), Some(needs_update)) =
+			(&mut self.primary_project, &self.needs_update)
+		{
+			if let Ok(Ok(notify::Event { kind, .. })) = needs_update.try_recv() {
+				if let notify::EventKind::Create(..) | notify::EventKind::Remove(..) = kind {
+					primary_project.populate().map_err(|msg| OpenContent(msg))?;
+				}
+			}
+		}
 
 		SidePanel::left("Project Tree").show(ctx, |ui| {
 			if let Some(project) = &mut self.primary_project {
@@ -245,14 +294,14 @@ impl ProjectManager {
 	}
 
 	pub fn has_changes(&self) -> bool {
-		self.source_project != self.primary_project
+		self.source_project.as_ref() != self.primary_project.as_ref().map(|p| &p.info)
 	}
 
 	pub fn save(&mut self) -> anyhow::Result<()> {
 		if let Some(primary_project) = &self.primary_project {
 			let text = toml::to_string(&primary_project.info)?;
 			fs::write(primary_project.info.path.join(PROJECT_FILE), text)?;
-			self.source_project = Some(primary_project.clone());
+			self.source_project = Some(primary_project.info.clone());
 		}
 		Ok(())
 	}

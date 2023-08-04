@@ -20,4 +20,5 @@ egui-toast = "0.8.0"
 serde = "1.0.176"
 thiserror = "1.0.44"
 egui_extras = { version = "0.22.0", features = ["image"] }
+notify = "6.0.1"
 

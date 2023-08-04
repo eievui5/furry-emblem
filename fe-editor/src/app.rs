@@ -32,6 +32,9 @@ fn show_project_manager(app: &mut EditorApp, ctx: &Context) -> anyhow::Result<()
 			let editor = open_editor(&path, &text)?;
 			app.editors.push(editor);
 		}
+		Delete(path) => {
+			fs::remove_file(path)?;
+		}
 		New(editor) => {
 			app.editors.push(editor);
 		}
@@ -39,7 +42,6 @@ fn show_project_manager(app: &mut EditorApp, ctx: &Context) -> anyhow::Result<()
 	Ok(())
 }
 
-#[derive(Default)]
 pub struct EditorApp {
 	file: FileTab,
 	options: OptionsTab,
@@ -53,8 +55,12 @@ pub struct EditorApp {
 impl EditorApp {
 	pub fn new() -> Self {
 		Self {
+			file: FileTab::default(),
+			options: OptionsTab::default(),
 			project_manager: ProjectManager::new(),
-			..Default::default()
+			close_handler: CloseHandler::default(),
+			primary_editor: None,
+			editors: Vec::new(),
 		}
 	}
 
@@ -199,18 +205,24 @@ impl eframe::App for EditorApp {
 					self.primary_editor = Some(self.editors.remove(i));
 				}
 			} else if close_requested || !is_open {
-				if let Err(msg) = self.editors[i].save() {
-					toasts.add(error(format!(
-						"Failed to save {}: {msg}",
-						self.editors[i].get_path().display()
-					)));
-				} else {
+				let force_close = ctx.input(|i| i.modifiers.shift);
+				if force_close
+					|| if let Err(msg) = self.editors[i].save() {
+						toasts.add(error(format!(
+							"Failed to save {}: {msg}",
+							self.editors[i].get_path().display()
+						)));
+						false
+					} else {
+						true
+					} {
 					self.editors.remove(i);
 				}
 			}
 		}
 
 		CentralPanel::default().show(ctx, |ui| {
+			let force_close = ctx.input(|i| i.modifiers.shift);
 			let mut pop_out_requested = false;
 			let mut close_requested = false;
 
@@ -224,7 +236,13 @@ impl eframe::App for EditorApp {
 						return;
 					}
 					pop_out_requested = ui.button("Pop Out").clicked();
-					close_requested = ui.button("Close").clicked();
+					close_requested = ui
+						.button(if force_close {
+							"Close without saving"
+						} else {
+							"Close"
+						})
+						.clicked();
 				});
 				ui.separator();
 				editor.show(ui);
@@ -234,12 +252,16 @@ impl eframe::App for EditorApp {
 				let this_editor = self.primary_editor.take().unwrap();
 				self.editors.push(this_editor);
 			} else if close_requested {
-				if let Err(msg) = self.primary_editor.as_mut().unwrap().save() {
-					toasts.add(error(format!(
-						"Failed to save {}: {msg}",
-						self.primary_editor.as_mut().unwrap().get_path().display()
-					)));
-				} else {
+				if force_close
+					|| if let Err(msg) = self.primary_editor.as_mut().unwrap().save() {
+						toasts.add(error(format!(
+							"Failed to save {}: {msg}",
+							self.primary_editor.as_mut().unwrap().get_path().display()
+						)));
+						false
+					} else {
+						true
+					} {
 					self.primary_editor = None;
 				}
 			}
