@@ -2,6 +2,9 @@ name = "Iron Sword"
 description = ""
 value = 69
 
+[icon]
+path = "../classes/icons/dog.png"
+
 [type.Weapon]
 damage = 5
 weight = 5

@@ -14,6 +14,9 @@ armored = false
 flying = false
 agile = false
 
+[icon]
+path = "icons/cat.png"
+
 [bases]
 hp = 15
 power = 5

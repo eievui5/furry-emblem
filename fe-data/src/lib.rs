@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::NonZeroU32;
 
+pub mod containers;
+use containers::*;
+
 #[cfg(feature = "stata")]
 use {
 	quote::quote,
@@ -32,6 +35,7 @@ pub struct Stats {
 pub struct Class {
 	pub name: String,
 	pub description: String,
+	pub icon: Image,
 
 	/// Base stats for a given class.
 	/// Individual characters should offset this to provide some more unique spreads.
@@ -141,6 +145,7 @@ impl fmt::Display for ItemType {
 pub struct Item {
 	pub name: String,
 	pub description: String,
+	pub icon: Image,
 	pub value: Option<NonZeroU32>,
 	#[serde(rename = "type")]
 	pub ty: ItemType,

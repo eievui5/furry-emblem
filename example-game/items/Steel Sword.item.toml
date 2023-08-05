@@ -1,3 +1,6 @@
 name = "Steel Sword"
 description = ""
 type = "None"
+
+[icon]
+path = ""

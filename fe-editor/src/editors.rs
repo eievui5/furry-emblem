@@ -1,12 +1,79 @@
+use egui_extras::RetainedImage;
 use fe_data::*;
 use paste::paste;
+use pathdiff::diff_paths;
 use std::borrow::Cow;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fs, io};
+use std::{fmt, fs, io, thread};
 use thiserror::Error;
 use uuid::Uuid;
+
+/// RetainedImage doesn't implement very basic traits (annoying) so we hafta do it for them.
+pub struct OptionalImage(Option<RetainedImage>);
+
+impl fmt::Debug for OptionalImage {
+	fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+		Ok(())
+	}
+}
+
+impl Clone for OptionalImage {
+	fn clone(&self) -> Self {
+		Self(None)
+	}
+}
+
+impl Default for OptionalImage {
+	fn default() -> Self {
+		Self(None)
+	}
+}
+
+#[derive(Default, Debug)]
+pub struct FilePicker {
+	handle: Option<thread::JoinHandle<Option<PathBuf>>>,
+}
+
+impl Clone for FilePicker {
+	fn clone(&self) -> Self {
+		Self { handle: None }
+	}
+}
+
+impl FilePicker {
+	pub fn open(&mut self) {
+		if self.handle.is_some() {
+			return;
+		}
+		self.handle = Some(thread::spawn(move || {
+			rfd::FileDialog::new()
+				.set_directory(
+					Path::new("./")
+						.canonicalize()
+						.unwrap_or(PathBuf::from("./")),
+				)
+				.pick_file()
+		}));
+	}
+
+	pub fn try_take_relative(&mut self, to: &Path) -> Option<PathBuf> {
+		if let Some(handle) = &self.handle {
+			if handle.is_finished() {
+				if let Ok(Some(path)) = self.handle.take().unwrap().join() {
+					let parent = to
+						.parent()
+						.unwrap_or(Path::new(""))
+						.canonicalize()
+						.unwrap_or(PathBuf::from(""));
+					return Some(diff_paths(&path, &parent).unwrap_or(path).to_path_buf());
+				}
+			}
+		}
+		None
+	}
+}
 
 pub fn open_editor(file: &Path, text: &str) -> Result<Box<dyn Editor>, EditorError> {
 	use EditorError::*;
@@ -105,21 +172,22 @@ macro_rules! impl_save_as {
 	};
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ClassEditor {
 	pub path: PathBuf,
 	pub class: Class,
 	pub source_class: Option<Class>,
 	pub id: Uuid,
+	pub icon_picker: FilePicker,
+	pub icon: OptionalImage,
 }
 
 impl ClassEditor {
 	pub fn create(path: &Path) -> Box<dyn Editor> {
 		Box::new(Self {
 			path: path.to_path_buf(),
-			class: Default::default(),
-			source_class: None,
 			id: Uuid::new_v4(),
+			..Default::default()
 		})
 	}
 
@@ -131,6 +199,7 @@ impl ClassEditor {
 			class,
 			source_class,
 			id: Uuid::new_v4(),
+			..Default::default()
 		})
 	}
 }
@@ -201,6 +270,35 @@ impl Editor for ClassEditor {
 			ui.text_edit_multiline(&mut self.class.description);
 			ui.end_row();
 
+			ui.label("Icon:");
+			ui.vertical(|ui| {
+				if ui.button(self.class.icon.path.to_string_lossy()).clicked() {
+					self.icon_picker.open();
+				}
+				if let Some(path) = self.icon_picker.try_take_relative(&self.path) {
+					self.class.icon.path = path
+				}
+				if let Some(image) = &self.icon.0 {
+					image.show(ui);
+				} else if !self.class.icon.path.as_os_str().is_empty() {
+					if let Ok(bytes) = fs::read(
+						self.path
+							.parent()
+							.unwrap_or(Path::new(""))
+							.join(&self.class.icon.path),
+					) {
+						self.icon.0 = Some(
+							RetainedImage::from_image_bytes(
+								self.class.icon.path.to_string_lossy(),
+								&bytes,
+							)
+							.unwrap(),
+						);
+					}
+				}
+			});
+			ui.end_row();
+
 			stat_editor("Bases:", &mut self.class.bases, ui);
 			ui.end_row();
 
@@ -249,15 +347,15 @@ pub struct ItemEditor {
 	pub item: fe_data::Item,
 	pub source_item: Option<fe_data::Item>,
 	pub id: Uuid,
+	pub icon_picker: FilePicker,
 }
 
 impl ItemEditor {
 	pub fn create(path: &Path) -> Box<dyn Editor> {
 		Box::new(Self {
 			path: path.to_path_buf(),
-			item: Default::default(),
-			source_item: None,
 			id: Uuid::new_v4(),
+			..Default::default()
 		})
 	}
 
@@ -269,6 +367,7 @@ impl ItemEditor {
 			item,
 			source_item,
 			id: Uuid::new_v4(),
+			..Default::default()
 		})
 	}
 }
@@ -299,6 +398,15 @@ impl Editor for ItemEditor {
 
 				ui.label("Description:");
 				ui.text_edit_multiline(&mut self.item.description);
+				ui.end_row();
+
+				ui.label("Icon:");
+				if ui.button(self.item.icon.path.to_string_lossy()).clicked() {
+					self.icon_picker.open();
+				}
+				if let Some(path) = self.icon_picker.try_take_relative(&self.path) {
+					self.item.icon.path = path
+				}
 				ui.end_row();
 
 				let mut is_sellable = self.item.value.is_some();
