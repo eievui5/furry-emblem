@@ -43,19 +43,19 @@ pub fn convert_dir<T: Resource + for<'de> serde::Deserialize<'de>>(
             let Ok(text) = std::fs::read_to_string(&path) else {
                 continue;
             };
-            if let Some(resource) = parse(&text) {
-                let name = path
-                    .file_prefix()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_case(Case::UpperSnake);
-                let ty = T::static_type().to_string();
-                let value = &resource.static_value().to_string();
-                write!(
-                    o,
-                    "#[allow(non_upper_case_globals)] pub const {name}: {ty} = {value};",
-                )?;
-            }
+            
+            let resource = parse(&text).unwrap();
+            let name = path
+                .file_prefix()
+                .unwrap()
+                .to_string_lossy()
+                .to_case(Case::UpperSnake);
+            let ty = T::static_type().to_string();
+            let value = &resource.static_value().to_string();
+            write!(
+                o,
+                "#[allow(non_upper_case_globals, dead_code)] pub const {name}: {ty} = {value};",
+            )?;
         }
     }
 

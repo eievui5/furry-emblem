@@ -75,7 +75,6 @@ impl Project {
 								result = New(Box::new(editor));
 							}
 						});
-						ui.separator();
 					}
 				}
 			};
