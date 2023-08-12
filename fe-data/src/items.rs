@@ -1,7 +1,7 @@
-use crate::Image;
+use crate::containers::Image;
+use crate::make_reference;
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::num::NonZeroU32;
+use std::{fmt, num::NonZeroU32};
 
 #[cfg(feature = "sucrose")]
 use {
@@ -9,22 +9,7 @@ use {
 	sucrose::{Resource, ToStatic, TokenStream},
 };
 
-#[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(default)]
-pub struct ItemReference {
-	identifier: String,
-}
-
-#[cfg(feature = "sucrose")]
-impl ToStatic for ItemReference {
-	fn static_type() -> TokenStream {
-		quote!(&'static Item)
-	}
-	fn static_value(&self) -> TokenStream {
-		let data = proc_macro2::Ident::new(&self.identifier, proc_macro2::Span::call_site());
-		quote!(&super::items::#data)
-	}
-}
+make_reference!(items::Item => ItemReference);
 
 #[cfg_attr(feature = "sucrose", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
