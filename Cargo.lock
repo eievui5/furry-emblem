@@ -1023,7 +1023,7 @@ dependencies = [
  "arrayvec",
  "quote",
  "serde",
- "stata",
+ "sucrose",
  "toml",
 ]
 
@@ -2338,41 +2338,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stata"
-version = "0.1.0"
-dependencies = [
- "convert_case",
- "proc-macro2",
- "quote",
- "serde",
- "stata-macros",
- "thiserror",
-]
-
-[[package]]
-name = "stata-macros"
-version = "0.1.0"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "serde",
- "syn 2.0.27",
- "toml",
-]
-
-[[package]]
-name = "stata-usage"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "fe-data",
- "serde",
- "stata",
- "toml",
-]
-
-[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2395,6 +2360,31 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "sucrose"
+version = "1.0.0"
+source = "git+https://github.com/eievui5/sucrose#74c9cb4a5b37a325166b7c5034b5ee0395febe21"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "sucrose-macros",
+ "thiserror",
+]
+
+[[package]]
+name = "sucrose-macros"
+version = "1.0.0"
+source = "git+https://github.com/eievui5/sucrose#74c9cb4a5b37a325166b7c5034b5ee0395febe21"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.27",
+ "toml",
+]
 
 [[package]]
 name = "syn"

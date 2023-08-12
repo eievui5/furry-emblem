@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "stata")]
+#[cfg(feature = "sucrose")]
 use {
 	quote::quote,
-	stata::{proc_macro2, Resource, ToStatic, TokenStream},
+	sucrose::{proc_macro2, Resource, ToStatic, TokenStream},
 };
 
 pub mod containers;
@@ -12,7 +12,7 @@ use containers::*;
 mod items;
 pub use items::*;
 
-#[cfg_attr(feature = "stata", derive(Resource))]
+#[cfg_attr(feature = "sucrose", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Stats {
@@ -30,7 +30,7 @@ pub struct Stats {
 	pub reflexes: i32,
 }
 
-#[cfg_attr(feature = "stata", derive(Resource))]
+#[cfg_attr(feature = "sucrose", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Class {

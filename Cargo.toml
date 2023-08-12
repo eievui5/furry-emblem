@@ -3,13 +3,10 @@
 members = [
 	"fe-editor",
 	"fe-data",
-	"stata",
-	"stata-macros",
-	"stata-usage",
 ]
 
 resolver = "2"
 
 [workspace.dependencies]
 fe-data = { path = "fe-data/" }
-stata = { path = "stata/" }
+sucrose = { git = "https://github.com/eievui5/sucrose" }

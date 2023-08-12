@@ -9,10 +9,10 @@ edition = "2021"
 arrayvec = { version = "0.7.4", features = ["serde"] }
 quote = { version = "1.0.32", optional = true }
 serde = { version = "1.0.174", features = ["derive"] }
-stata = { workspace = true, optional = true }
+sucrose = { workspace = true, optional = true }
 
 [dev-dependencies]
 toml = "0.7.6"
 
 [features]
-stata = ["dep:stata", "dep:quote"]
+sucrose = ["dep:sucrose", "dep:quote"]

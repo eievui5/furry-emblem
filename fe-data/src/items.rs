@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::NonZeroU32;
 
-#[cfg(feature = "stata")]
+#[cfg(feature = "sucrose")]
 use {
 	quote::quote,
-	stata::{Resource, ToStatic, TokenStream},
+	sucrose::{Resource, ToStatic, TokenStream},
 };
 
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -15,7 +15,7 @@ pub struct ItemReference {
 	identifier: String,
 }
 
-#[cfg(feature = "stata")]
+#[cfg(feature = "sucrose")]
 impl ToStatic for ItemReference {
 	fn static_type() -> TokenStream {
 		quote!(&'static Item)
@@ -26,7 +26,7 @@ impl ToStatic for ItemReference {
 	}
 }
 
-#[cfg_attr(feature = "stata", derive(Resource))]
+#[cfg_attr(feature = "sucrose", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct WeaponItem {
@@ -43,7 +43,7 @@ pub enum ItemType {
 	Weapon(WeaponItem),
 }
 
-#[cfg(feature = "stata")]
+#[cfg(feature = "sucrose")]
 impl ToStatic for ItemType {
 	fn static_type() -> TokenStream {
 		quote!(ItemType)
@@ -61,7 +61,7 @@ impl ToStatic for ItemType {
 	}
 }
 
-#[cfg(feature = "stata")]
+#[cfg(feature = "sucrose")]
 impl Resource for ItemType {
 	fn static_struct() -> TokenStream {
 		quote! {
@@ -90,7 +90,7 @@ impl fmt::Display for ItemType {
 	}
 }
 
-#[cfg_attr(feature = "stata", derive(Resource))]
+#[cfg_attr(feature = "sucrose", derive(Resource))]
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Item {
