@@ -6,6 +6,7 @@ fn main() {
 		ty: ItemType::Weapon(WeaponItem {
 			damage: 5,
 			weight: 5,
+			..Default::default()
 		}),
 		..Default::default()
 	};
