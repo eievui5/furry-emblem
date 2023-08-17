@@ -148,8 +148,8 @@ impl ProjectInfo {
 	fn open_dir(path: impl AsRef<Path>) -> Result<Self, LoadProjectError> {
 		use LoadProjectError::*;
 		let path = path.as_ref();
-		let project_file = fs::read_to_string(path.join(PROJECT_FILE)).map_err(|msg| Open(msg))?;
-		let mut project: Self = toml::from_str(&project_file).map_err(|msg| Parse(msg))?;
+		let project_file = fs::read_to_string(path.join(PROJECT_FILE)).map_err(Open)?;
+		let mut project: Self = toml::from_str(&project_file).map_err(Parse)?;
 		project.path = path.to_path_buf();
 		Ok(project)
 	}
@@ -236,7 +236,7 @@ impl ProjectManager {
 		{
 			if let Ok(Ok(notify::Event { kind, .. })) = needs_update.try_recv() {
 				if let notify::EventKind::Create(..) | notify::EventKind::Remove(..) = kind {
-					primary_project.populate().map_err(|msg| OpenContent(msg))?;
+					primary_project.populate().map_err(OpenContent)?;
 				}
 			}
 		}
@@ -384,7 +384,7 @@ impl LoadProjectWindow {
 					}
 				}
 				if ui.button("Open").clicked() {
-					project = ProjectInfo::open_dir(&self.path).map(|p| Some(p));
+					project = ProjectInfo::open_dir(&self.path).map(Some);
 				}
 			});
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::file_dialogue::FilePicker;
 use crate::impl_save_as;
 use paste::paste;
 use std::fs;
@@ -25,7 +26,7 @@ impl ItemEditor {
 	}
 
 	pub fn new(path: impl AsRef<Path>, text: &str) -> anyhow::Result<Self> {
-		let item: Item = toml::from_str(&text)?;
+		let item: Item = toml::from_str(text)?;
 		let source_item = Some(item.clone());
 		Ok(Self {
 			path: path.as_ref().to_path_buf(),
@@ -98,17 +99,26 @@ impl Editor for ItemEditor {
 					macro_rules! show_type {
 						($type:literal, $func:expr) => {
 							if ui.button($type).clicked() {
+								let func = $func;
 								ui.close_menu();
-								self.item.ty = $func();
+								self.item.ty = func();
 							}
 						};
 					}
-					show_type!("None", || { ItemType::None });
-					show_type!("Weapon", || { ItemType::Weapon(WeaponItem::default()) });
+					show_type!("None", || ItemType::None);
+					show_type!("Weapon", || ItemType::Weapon(WeaponItem::default()));
 				});
 				ui.end_row();
 
 				match &mut self.item.ty {
+					ItemType::Heal(item) => {
+						ui.label("Amount:");
+						ui.add(egui::DragValue::new(&mut item.amount).speed(1));
+						ui.end_row();
+						ui.label("Uses:");
+						ui.add(egui::DragValue::new(&mut item.uses).speed(1));
+						ui.end_row();
+					}
 					ItemType::Weapon(item) => {
 						ui.label("Damage:");
 						ui.add(egui::DragValue::new(&mut item.damage).speed(1));
@@ -120,7 +130,7 @@ impl Editor for ItemEditor {
 						ui.add(egui::DragValue::new(&mut item.durability).speed(1));
 						ui.end_row();
 					}
-					_ => {}
+					ItemType::None => {}
 				}
 			});
 	}

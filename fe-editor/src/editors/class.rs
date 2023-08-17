@@ -1,4 +1,5 @@
 use super::*;
+use crate::file_dialogue::FilePicker;
 use crate::impl_save_as;
 use egui_extras::RetainedImage;
 use std::fs;
@@ -26,7 +27,7 @@ impl ClassEditor {
 	}
 
 	pub fn new(path: impl AsRef<Path>, text: &str) -> anyhow::Result<Self> {
-		let class: Class = toml::from_str(&text)?;
+		let class: Class = toml::from_str(text)?;
 		let source_class = Some(class.clone());
 		Ok(Self {
 			path: path.as_ref().to_path_buf(),

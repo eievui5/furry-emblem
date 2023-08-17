@@ -2,10 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[cfg(feature = "sucrose")]
-use {
-	quote::quote,
-	sucrose::{ToStatic, TokenStream},
-};
+use sucrose::{quote, ToStatic, TokenStream};
 
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Image file wrapper.

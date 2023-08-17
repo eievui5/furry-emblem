@@ -11,13 +11,13 @@ macro_rules! make_reference {
 		}
 
 		#[cfg(feature = "sucrose")]
-		impl ToStatic for $newtype {
-			fn static_type() -> TokenStream {
-				quote!(&'static $target)
+		impl sucrose::ToStatic for $newtype {
+			fn static_type() -> ::sucrose::TokenStream {
+				sucrose::quote!(&'static $target)
 			}
-			fn static_value(&self) -> TokenStream {
-				let data = proc_macro2::Ident::new(&self.identifier, proc_macro2::Span::call_site());
-				quote!(&super::$container::#data)
+			fn static_value(&self) -> ::sucrose::TokenStream {
+				let data = ::sucrose::proc_macro2::Ident::new(&self.identifier, ::sucrose::proc_macro2::Span::call_site());
+				sucrose::quote!(&super::$container::#data)
 			}
 		}
 	};

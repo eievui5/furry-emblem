@@ -52,6 +52,15 @@ pub struct EditorApp {
 	editors: Vec<Box<dyn Editor>>,
 }
 
+impl Default for EditorApp {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
+type EditorChainIter<'a> =
+	Chain<slice::IterMut<'a, Box<dyn Editor>>, option::IterMut<'a, Box<dyn Editor>>>;
+
 impl EditorApp {
 	pub fn new() -> Self {
 		Self {
@@ -64,9 +73,7 @@ impl EditorApp {
 		}
 	}
 
-	pub fn editors(
-		&mut self,
-	) -> Chain<slice::IterMut<'_, Box<dyn Editor>>, option::IterMut<'_, Box<dyn Editor>>> {
+	pub fn editors(&mut self) -> EditorChainIter {
 		self.editors
 			.iter_mut()
 			.chain(self.primary_editor.iter_mut())
@@ -74,8 +81,7 @@ impl EditorApp {
 
 	fn has_changes(&mut self) -> bool {
 		self.project_manager.has_changes()
-			|| (!self.editors.is_empty()
-				&& self.editors().filter(|e| e.has_changes()).next().is_some())
+			|| (!self.editors.is_empty() && self.editors().any(|e| e.has_changes()))
 	}
 
 	fn save(&mut self) -> anyhow::Result<()> {
@@ -251,8 +257,8 @@ impl eframe::App for EditorApp {
 			if pop_out_requested {
 				let this_editor = self.primary_editor.take().unwrap();
 				self.editors.push(this_editor);
-			} else if close_requested {
-				if force_close
+			} else if close_requested
+				&& (force_close
 					|| if let Err(msg) = self.primary_editor.as_mut().unwrap().save() {
 						toasts.add(error(format!(
 							"Failed to save {}: {msg}",
@@ -261,9 +267,8 @@ impl eframe::App for EditorApp {
 						false
 					} else {
 						true
-					} {
-					self.primary_editor = None;
-				}
+					}) {
+				self.primary_editor = None;
 			}
 		});
 
