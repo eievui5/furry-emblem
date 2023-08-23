@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
 pub mod containers;
 
 #[macro_export]
@@ -40,4 +43,59 @@ import! {
 	class,
 	stats,
 	unit,
+}
+
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+pub struct Module {
+	// Required fields
+	pub name: String,
+
+	// Optional fields.
+	#[serde(default)]
+	pub primary: bool,
+	#[serde(default)]
+	pub icon_path: Option<PathBuf>,
+
+	// Runtime info
+	#[serde(skip)]
+	#[cfg(feature = "runtime")]
+	pub path: PathBuf,
+	#[serde(skip)]
+	#[cfg(feature = "runtime")]
+	pub icon: Option<image::DynamicImage>,
+}
+
+impl Eq for Module {}
+
+impl PartialEq for Module {
+	fn eq(&self, other: &Module) -> bool {
+		macro_rules! compare {
+			($($ident:ident),+) => {
+				$(
+					self.$ident == other.$ident
+				)&&+
+			}
+		}
+		compare!(name, primary, icon_path)
+	}
+}
+
+#[cfg(feature = "runtime")]
+impl Module {
+	/// Fills runtime fields according to inputs.
+	pub fn populate(&mut self, path: PathBuf) {
+		use std::path::Path;
+
+		let icon_path = path.join(self.icon_path.as_ref().map_or(Path::new("icon.png"), |p| p));
+		match image::open(&icon_path) {
+			Ok(icon) => self.icon = Some(icon),
+			Err(msg) => {
+				// If the user didn't ask to load an icon, they won't care about this error.
+				if self.icon_path.is_some() {
+					log::error!("Failed to load custom icon: {}: {msg}", icon_path.display());
+				}
+			}
+		}
+		self.path = path;
+	}
 }

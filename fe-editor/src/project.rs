@@ -1,5 +1,6 @@
 use crate::editors::*;
 use egui::*;
+use fe_data::Module;
 use fe_data::*;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use paste::paste;
@@ -35,7 +36,7 @@ pub struct ItemPreview {
 
 #[derive(Clone, Default, Eq, PartialEq)]
 pub struct Project {
-	info: ProjectInfo,
+	info: Module,
 	classes: Vec<ClassPreview>,
 	items: Vec<ItemPreview>,
 }
@@ -112,10 +113,10 @@ impl Project {
 	}
 }
 
-impl TryFrom<ProjectInfo> for Project {
+impl TryFrom<Module> for Project {
 	type Error = anyhow::Error;
 
-	fn try_from(info: ProjectInfo) -> Result<Self, anyhow::Error> {
+	fn try_from(info: Module) -> Result<Self, anyhow::Error> {
 		let mut project = Self {
 			classes: Vec::new(),
 			items: Vec::new(),
@@ -128,36 +129,27 @@ impl TryFrom<ProjectInfo> for Project {
 	}
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(default)]
-pub struct ProjectInfo {
-	pub name: String,
-	#[serde(skip)]
-	pub path: PathBuf,
+fn make_new_module() -> Module {
+	Module {
+		name: String::from("New Project"),
+		path: PathBuf::from("./"),
+		..Default::default()
+	}
 }
 
-impl ProjectInfo {
-	fn new() -> Self {
-		Self {
-			name: String::from("New Project"),
-			path: PathBuf::from("./"),
-		}
-	}
-
-	/// Opens the project file within a given directory, given it exists.
-	fn open_dir(path: impl AsRef<Path>) -> Result<Self, LoadProjectError> {
-		use LoadProjectError::*;
-		let path = path.as_ref();
-		let project_file = fs::read_to_string(path.join(PROJECT_FILE)).map_err(Open)?;
-		let mut project: Self = toml::from_str(&project_file).map_err(Parse)?;
-		project.path = path.to_path_buf();
-		Ok(project)
-	}
+/// Opens the project file within a given directory, given it exists.
+fn open_module(path: impl AsRef<Path>) -> Result<Module, LoadProjectError> {
+	use LoadProjectError::*;
+	let path = path.as_ref();
+	let project_file = fs::read_to_string(path.join(PROJECT_FILE)).map_err(Open)?;
+	let mut project: Module = toml::from_str(&project_file).map_err(Parse)?;
+	project.path = path.to_path_buf();
+	Ok(project)
 }
 
 pub struct ProjectManager {
-	pub local_projects: Vec<ProjectInfo>,
-	pub source_project: Option<ProjectInfo>,
+	pub local_projects: Vec<Module>,
+	pub source_project: Option<Module>,
 	pub primary_project: Option<Project>,
 	pub new_project_window: NewProjectWindow,
 	pub load_project_window: LoadProjectWindow,
@@ -205,7 +197,7 @@ impl ProjectManager {
 					continue;
 				};
 
-				let Ok(mut project) = toml::from_str::<ProjectInfo>(&toml) else {
+				let Ok(mut project) = toml::from_str::<Module>(&toml) else {
 					continue;
 				};
 
@@ -308,7 +300,7 @@ impl ProjectManager {
 
 pub struct NewProjectWindow {
 	pub visible: bool,
-	pub project: ProjectInfo,
+	pub project: Module,
 	pub dialog: egui_file::FileDialog,
 }
 
@@ -316,14 +308,14 @@ impl Default for NewProjectWindow {
 	fn default() -> Self {
 		Self {
 			visible: false,
-			project: ProjectInfo::new(),
+			project: make_new_module(),
 			dialog: egui_file::FileDialog::select_folder(None),
 		}
 	}
 }
 
 impl NewProjectWindow {
-	pub fn show(&mut self, ctx: &Context) -> Option<ProjectInfo> {
+	pub fn show(&mut self, ctx: &Context) -> Option<Module> {
 		let mut project = None;
 
 		Window::new("Create New Project")
@@ -341,7 +333,7 @@ impl NewProjectWindow {
 					}
 				}
 				if ui.button("Create").clicked() {
-					let mut new_project = ProjectInfo::new();
+					let mut new_project = make_new_module();
 					mem::swap(&mut new_project, &mut self.project);
 					project = Some(new_project);
 				}
@@ -368,7 +360,7 @@ impl Default for LoadProjectWindow {
 }
 
 impl LoadProjectWindow {
-	pub fn show(&mut self, ctx: &Context) -> Result<Option<ProjectInfo>, LoadProjectError> {
+	pub fn show(&mut self, ctx: &Context) -> Result<Option<Module>, LoadProjectError> {
 		let mut project = Ok(None);
 
 		Window::new("Add Project")
@@ -384,7 +376,7 @@ impl LoadProjectWindow {
 					}
 				}
 				if ui.button("Open").clicked() {
-					project = ProjectInfo::open_dir(&self.path).map(Some);
+					project = open_module(&self.path).map(Some);
 				}
 			});
 

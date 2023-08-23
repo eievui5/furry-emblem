@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 # Local dependencies
-fe-data = { workspace = true }
+fe-data = { workspace = true, features = ["runtime"] }
 
 egui_file = "0.10.0"
 eframe = "0.22.0"

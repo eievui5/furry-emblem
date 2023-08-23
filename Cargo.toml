@@ -2,6 +2,7 @@
 
 members = [
 	"fe-editor",
+	"fe-engine",
 	"fe-data",
 ]
 
