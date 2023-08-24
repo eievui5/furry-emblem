@@ -12,4 +12,7 @@ It consists of 3 main projects:
 	- Allows formats to be shared between fe-editor and fe-engine's build script.
 
 Ideally, fe-engine should not hard-code any features or make assumptions about the data formats.
+
 Multiple projects and engines should be supported.
+
+Scripting should be a very large focus, to avoid needing to make engine modifications.

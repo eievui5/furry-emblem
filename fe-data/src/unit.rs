@@ -10,15 +10,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Personality {
-	name: String,
-	icon: Image,
+	pub name: String,
+	pub icon: Image,
 	// TODO: Consider adding a config option to change the impact of personality/supports.
-	growths_bonus: Stats,
+	pub growths_bonus: Stats,
 }
 
 make_reference!(personality::Personality => PersonalityReference);
 
-/// Everything that makes up a character.
+/// Everything that makes up a (named) character.
 ///
 /// There may be other variants of this type with less information, to imply certain fields and variations.
 /// For example, enemy units are less fleshed out and need less defined.
@@ -31,16 +31,15 @@ make_reference!(personality::Personality => PersonalityReference);
 #[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Unit {
-	/// Unit's name.
-	/// If absent, affiliation will be displayed instead.
-	name: Option<String>,
+	pub name: String,
+	pub description: Option<String>,
 	/// Unit's affiliation, such as a part or team.
 	/// If absent, class name will be displayed instead.
-	affiliation: Option<String>,
-	class: ClassReference,
+	pub affiliation: Option<String>,
+	pub class: ClassReference,
 	// Bases offset. Applied on top of class bases.
-	bases: Stats,
+	pub bases: Stats,
 	// Growths offset. Applied on top of class growths.
-	growths: Stats,
-	personality: Option<PersonalityReference>,
+	pub growths: Stats,
+	pub personality: Option<PersonalityReference>,
 }

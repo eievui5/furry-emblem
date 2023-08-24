@@ -19,7 +19,7 @@ macro_rules! file_types {
 	};
 }
 
-file_types!(Class, Item);
+file_types!(Class, Item, Unit);
 
 #[derive(Default)]
 pub struct NewFileWindow {

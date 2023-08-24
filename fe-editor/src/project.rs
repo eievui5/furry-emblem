@@ -34,10 +34,17 @@ pub struct ItemPreview {
 }
 
 #[derive(Clone, Default, Eq, PartialEq)]
+pub struct UnitPreview {
+	content: Unit,
+	path: PathBuf,
+}
+
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct Project {
 	info: ProjectInfo,
 	classes: Vec<ClassPreview>,
 	items: Vec<ItemPreview>,
+	units: Vec<UnitPreview>,
 }
 
 pub enum ProjectShowResponse {
@@ -56,32 +63,31 @@ impl Project {
 		macro_rules! show_type {
 			($member:ident, $editor:ident) => {
 				paste! {
-					if !self.$member.is_empty() {
-						ui.collapsing(stringify!([<$member:camel>]), |ui| {
-							for i in &self.$member {
-								ui.horizontal(|ui| {
-									if ui.link("\u{1F5D9}").clicked() {
-										result = Delete(i.path.clone());
-									}
-									if ui.button(&i.content.name).clicked() {
-										result = Open(i.path.clone());
-									}
-								});
-							}
-							ui.separator();
-							if ui.button("Create New").clicked() {
-								let mut editor = $editor::default();
-								editor.path = self.info.path.join(stringify!($member)).to_path_buf();
-								result = New(Box::new(editor));
-							}
-						});
-					}
+					ui.collapsing(stringify!([<$member:camel>]), |ui| {
+						for i in &self.$member {
+							ui.horizontal(|ui| {
+								if ui.link("\u{1F5D9}").clicked() {
+									result = Delete(i.path.clone());
+								}
+								if ui.button(&i.content.name).clicked() {
+									result = Open(i.path.clone());
+								}
+							});
+						}
+						ui.separator();
+						if ui.button("Create New").clicked() {
+							let mut editor = $editor::default();
+							editor.path = self.info.path.join(stringify!($member)).to_path_buf();
+							result = New(Box::new(editor));
+						}
+					});
 				}
 			};
 		}
 
 		show_type!(classes, ClassEditor);
 		show_type!(items, ItemEditor);
+		show_type!(units, UnitEditor);
 
 		result
 	}
@@ -89,25 +95,25 @@ impl Project {
 	fn populate(&mut self) -> Result<(), anyhow::Error> {
 		macro_rules! load_dir {
 			($path:ident, $type:ident, $preview:ident) => {
-				if let Ok(dir) = fs::read_dir(self.info.path.join(stringify!($path))) {
-					self.$path.clear();
-					for entry in dir {
-						let entry = entry?;
-						let entry_path = entry.path();
-						if !entry_path.is_dir() {
-							self.$path.push($preview {
-								content: toml::from_str::<$type>(&fs::read_to_string(
-									&entry_path,
-								)?)?,
-								path: entry_path,
-							});
-						}
+				let path = stringify!($path);
+				fs::create_dir_all(self.info.path.join(path))?;
+				let dir = fs::read_dir(self.info.path.join(path))?;
+				self.$path.clear();
+				for entry in dir {
+					let entry = entry?;
+					let entry_path = entry.path();
+					if !entry_path.is_dir() {
+						self.$path.push($preview {
+							content: toml::from_str::<$type>(&fs::read_to_string(&entry_path)?)?,
+							path: entry_path,
+						});
 					}
 				}
 			};
 		}
 		load_dir!(classes, Class, ClassPreview);
 		load_dir!(items, Item, ItemPreview);
+		load_dir!(units, Unit, UnitPreview);
 		Ok(())
 	}
 }
@@ -119,6 +125,7 @@ impl TryFrom<ProjectInfo> for Project {
 		let mut project = Self {
 			classes: Vec::new(),
 			items: Vec::new(),
+			units: Vec::new(),
 			info,
 		};
 

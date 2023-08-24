@@ -3,7 +3,6 @@ use crate::impl_save_as;
 use egui_extras::RetainedImage;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
@@ -35,45 +34,6 @@ impl ClassEditor {
 			id: Uuid::new_v4(),
 			..Default::default()
 		})
-	}
-}
-
-fn stat_editor(name: &str, stats: &mut Stats, ui: &mut egui::Ui) {
-	ui.label(name);
-	egui::Grid::new(name).min_col_width(50.0).show(ui, |ui| {
-		ui.label("Hp");
-		ui.label("Power");
-		ui.label("Defense");
-		ui.label("Resistance");
-		ui.label("Dexterity");
-		ui.label("Movement");
-		ui.label("Constitution");
-		ui.label("Reflexes");
-		ui.end_row();
-
-		parse_edit(ui, &mut stats.hp);
-		parse_edit(ui, &mut stats.power);
-		parse_edit(ui, &mut stats.defense);
-		parse_edit(ui, &mut stats.resistance);
-		parse_edit(ui, &mut stats.dexterity);
-		parse_edit(ui, &mut stats.movement);
-		parse_edit(ui, &mut stats.constitution);
-		parse_edit(ui, &mut stats.reflexes);
-		ui.end_row();
-	});
-}
-
-fn parse_edit<I: FromStr + ToString + From<u8> + PartialEq>(ui: &mut egui::Ui, value: &mut I) {
-	let mut string = if *value == 0.into() {
-		String::new()
-	} else {
-		value.to_string()
-	};
-	ui.text_edit_singleline(&mut string);
-	if string.is_empty() {
-		*value = 0.into();
-	} else if let Ok(result) = string.parse() {
-		*value = result;
 	}
 }
 
