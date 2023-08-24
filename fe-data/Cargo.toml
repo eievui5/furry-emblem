@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 arrayvec = { version = "0.7.4", features = ["serde"] }
-quote = { version = "1.0.32", optional = true }
+image = { version = "0.24.7", optional = true }
+log = { version = "0.4.20", optional = true }
 serde = { version = "1.0.174", features = ["derive"] }
 sucrose = { workspace = true, optional = true }
 
@@ -15,4 +16,4 @@ sucrose = { workspace = true, optional = true }
 toml = "0.7.6"
 
 [features]
-sucrose = ["dep:sucrose", "dep:quote"]
+runtime = ["dep:image", "dep:log"]

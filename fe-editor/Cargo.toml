@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 # Local dependencies
-fe-data = { workspace = true }
+fe-data = { workspace = true, features = ["runtime"] }
 
 egui_file = "0.10.0"
 eframe = "0.22.0"
@@ -23,4 +23,5 @@ egui_extras = { version = "0.22.0", features = ["image"] }
 notify = "6.0.1"
 rfd = { version = "0.11.4",  default-features = false, features = ["xdg-portal"] }
 pathdiff = "0.2.1"
+image = "0.24.7"
 

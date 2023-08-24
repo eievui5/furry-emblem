@@ -1,7 +1,6 @@
 use egui_extras::RetainedImage;
 use fe_data::*;
 use paste::paste;
-use pathdiff::diff_paths;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -93,6 +92,7 @@ fn edit_optional<T>(
 }
 
 /// RetainedImage doesn't implement very basic traits (annoying) so we hafta do it for them.
+#[derive(Default)]
 pub struct OptionalImage(Option<RetainedImage>);
 
 impl fmt::Debug for OptionalImage {
@@ -104,56 +104,6 @@ impl fmt::Debug for OptionalImage {
 impl Clone for OptionalImage {
 	fn clone(&self) -> Self {
 		Self(None)
-	}
-}
-
-impl Default for OptionalImage {
-	fn default() -> Self {
-		Self(None)
-	}
-}
-
-#[derive(Default, Debug)]
-pub struct FilePicker {
-	handle: Option<thread::JoinHandle<Option<PathBuf>>>,
-}
-
-impl Clone for FilePicker {
-	fn clone(&self) -> Self {
-		Self { handle: None }
-	}
-}
-
-impl FilePicker {
-	pub fn open(&mut self) {
-		if self.handle.is_some() {
-			return;
-		}
-		self.handle = Some(thread::spawn(move || {
-			rfd::FileDialog::new()
-				.set_directory(
-					Path::new("./")
-						.canonicalize()
-						.unwrap_or(PathBuf::from("./")),
-				)
-				.pick_file()
-		}));
-	}
-
-	pub fn try_take_relative(&mut self, to: &Path) -> Option<PathBuf> {
-		if let Some(handle) = &self.handle {
-			if handle.is_finished() {
-				if let Ok(Some(path)) = self.handle.take().unwrap().join() {
-					let parent = to
-						.parent()
-						.unwrap_or(Path::new(""))
-						.canonicalize()
-						.unwrap_or(PathBuf::from(""));
-					return Some(diff_paths(&path, &parent).unwrap_or(path).to_path_buf());
-				}
-			}
-		}
-		None
 	}
 }
 

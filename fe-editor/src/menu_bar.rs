@@ -74,9 +74,9 @@ pub fn show(
 		if let Some(dialog) = &mut file_tab.open_file_dialog {
 			if dialog.show(ctx).selected() {
 				if let Some(file) = dialog.path() {
-					match fs::read_to_string(&file) {
+					match fs::read_to_string(file) {
 						Ok(text) => {
-							result = open_editor(&file, &text).map(|e| Some(NewEditor(e)));
+							result = open_editor(file, &text).map(|e| Some(NewEditor(e)));
 
 							file_tab.opened_file = Some(file.to_path_buf());
 						}
