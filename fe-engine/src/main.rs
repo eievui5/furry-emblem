@@ -1,7 +1,9 @@
 use bevy::prelude::*;
-use fe_engine::input;
+use bevy::window::WindowMode;
+use fe_engine::cursor;
 use fe_engine::module;
 use fe_engine::ppcanvas::PixelPerfectCanvas;
+use leafwing_input_manager::prelude::*;
 
 const DEFAULT_TITLE: &str = "Furry Emblem Engine";
 const WINDOW_SIZE: UVec2 = UVec2::new(240, 160);
@@ -26,37 +28,23 @@ fn open_icon(window: &PistonWindow, path: impl AsRef<Path>) -> anyhow::Result<()
 }
 */
 
-#[derive(Component)]
-struct Cursor;
-
 fn main() {
-	let (modules, module_errors) = module::load_all();
-
-	for msg in module_errors {
-		log::error!("{msg}");
-	}
+	let modules = module::load_all();
 
 	for module in &modules {
-		log::info!("Loaded module: {}", module.name);
+		info!("Loaded module: {}", module.name);
 	}
 
 	let primary_module = module::get_primary(&modules);
 	if let Some(primary_module) = primary_module {
 		if let Some(_icon) = &primary_module.icon {
 			//if let Err(msg) = set_icon(&window, icon.clone()) {
-			//	log::error!("Failed to use module icon: {msg}");
+			//	error!("Failed to use module icon: {msg}");
 			//}
 		}
 	}
 
-	log::info!("Engine Initialized.");
-
-	let _input_map = input::Map::from([
-		("Ui:Move Up", input::Key),
-		("Ui:Move Down", input::Key),
-		("Ui:Move Left", input::Key),
-		("Ui:Move Right", input::Key),
-	]);
+	info!("Engine Initialized.");
 
 	App::new()
 		.add_plugins((
@@ -70,28 +58,43 @@ fn main() {
 				})
 				.set(ImagePlugin::default_nearest())
 				.set(AssetPlugin {
-					asset_folder: String::from("./"),
+					asset_folder: String::from("../"),
 					..Default::default()
 				}),
 			PixelPerfectCanvas::<{ WINDOW_SIZE.x }, { WINDOW_SIZE.y }>,
+			InputManagerPlugin::<cursor::UiAction>::default(),
 		))
-		.add_systems(Startup, spawn_cursor)
-		.add_systems(Update, rotate_cursor)
+		.add_systems(Startup, (cursor::spawn, spawn_unit))
+		.add_systems(Update, (cursor::movement, cursor::rotate))
+		.add_systems(Update, fullscreen)
 		.run();
 }
 
-fn rotate_cursor(time: Res<Time>, mut cursors: Query<&mut Transform, With<Cursor>>) {
-	for mut i in &mut cursors {
-		i.rotation = Quat::from_rotation_y((time.startup().elapsed().as_millis() as f32) / 300.0);
+fn fullscreen(mut windows: Query<&mut Window>, keys: Res<Input<KeyCode>>) {
+	// TODO: Use an event for this.
+	if keys.just_pressed(KeyCode::F11) {
+		let mut window = windows.single_mut();
+		window.mode = if window.mode == WindowMode::Fullscreen {
+			WindowMode::Windowed
+		} else {
+			WindowMode::Fullscreen
+		};
 	}
 }
 
-fn spawn_cursor(mut commands: Commands, asset_server: Res<AssetServer>) {
-	commands.spawn((
-		Cursor,
-		SpriteBundle {
-			texture: asset_server.load("../example-game/items/icons/storm-sword.png"),
-			..Default::default()
-		},
-	));
+fn spawn_unit(
+	mut commands: Commands,
+	asset_server: Res<AssetServer>,
+	mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+	let texture_handle = asset_server.load("example-game/classes/icons/cat.png");
+	let texture_atlas =
+		TextureAtlas::from_grid(texture_handle, Vec2::new(16.0, 16.0), 6, 1, None, None);
+	let texture_atlas = texture_atlases.add(texture_atlas);
+
+	commands.spawn(SpriteSheetBundle {
+		texture_atlas,
+		sprite: TextureAtlasSprite::new(0),
+		..Default::default()
+	});
 }

@@ -76,7 +76,7 @@ impl<const X: u32, const Y: u32> Plugin for PixelPerfectCanvas<X, Y> {
 				..default()
 			},));
 
-			let background_texture = asset_server.load("../fe-engine/background.png");
+			let background_texture = asset_server.load("fe-engine/background.png");
 
 			// Scaler layer
 			// Projects the worldspace onto a statically sized texture.
