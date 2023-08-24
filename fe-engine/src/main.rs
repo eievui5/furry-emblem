@@ -1,9 +1,7 @@
 use bevy::prelude::*;
-use bevy::render::camera::*;
-use bevy::render::render_resource::*;
-use bevy::render::view::RenderLayers;
 use fe_engine::input;
 use fe_engine::module;
+use fe_engine::ppcanvas::PixelPerfectCanvas;
 
 const DEFAULT_TITLE: &str = "Furry Emblem Engine";
 const WINDOW_SIZE: UVec2 = UVec2::new(240, 160);
@@ -61,7 +59,7 @@ fn main() {
 	]);
 
 	App::new()
-		.add_plugins(
+		.add_plugins((
 			DefaultPlugins
 				.set(WindowPlugin {
 					primary_window: Some(Window {
@@ -75,8 +73,9 @@ fn main() {
 					asset_folder: String::from("./"),
 					..Default::default()
 				}),
-		)
-		.add_systems(Startup, add_camera)
+			PixelPerfectCanvas::<{ WINDOW_SIZE.x }, { WINDOW_SIZE.y }>,
+		))
+		.add_systems(Startup, spawn_cursor)
 		.add_systems(Update, rotate_cursor)
 		.run();
 }
@@ -87,79 +86,12 @@ fn rotate_cursor(time: Res<Time>, mut cursors: Query<&mut Transform, With<Cursor
 	}
 }
 
-fn add_camera(
-	mut commands: Commands,
-	mut assets: ResMut<Assets<Image>>,
-	asset_server: Res<AssetServer>,
-) {
-	let size = Extent3d {
-		width: WINDOW_SIZE.x,
-		height: WINDOW_SIZE.y,
-		..Default::default()
-	};
-
-	// This is the texture that will be rendered to.
-	let mut image = Image {
-		texture_descriptor: TextureDescriptor {
-			label: None,
-			size,
-			dimension: TextureDimension::D2,
-			format: TextureFormat::Bgra8UnormSrgb,
-			mip_level_count: 1,
-			sample_count: 1,
-			usage: TextureUsages::TEXTURE_BINDING
-				| TextureUsages::COPY_DST
-				| TextureUsages::RENDER_ATTACHMENT,
-			view_formats: &[],
-		},
-		..default()
-	};
-
-	// fill image.data with zeroes
-	image.resize(size);
-
-	let image_handle = assets.add(image);
-	let scale_up_layer = RenderLayers::layer(1);
-
-	commands.spawn((Camera2dBundle {
-		camera: Camera {
-			viewport: Some(Viewport {
-				// TODO: adjust this to match the size of the window.
-				physical_position: UVec2::ZERO,
-				physical_size: WINDOW_SIZE,
-				..default()
-			}),
-			target: RenderTarget::Image(image_handle.clone()),
-			..default()
-		},
-		..default()
-	},));
+fn spawn_cursor(mut commands: Commands, asset_server: Res<AssetServer>) {
 	commands.spawn((
 		Cursor,
 		SpriteBundle {
 			texture: asset_server.load("../example-game/items/icons/storm-sword.png"),
 			..Default::default()
 		},
-	));
-	//commands.spawn((SpriteBundle {
-	//	texture: asset_server.load("icon.png"),
-	//	..Default::default()
-	//},));
-
-	commands.spawn((Camera2dBundle::default(), scale_up_layer));
-	commands.spawn((
-		SpriteBundle {
-			texture: image_handle,
-			transform: Transform {
-				scale: Vec3 {
-					x: 20.0,
-					y: 20.0,
-					..Default::default()
-				},
-				..Default::default()
-			},
-			..Default::default()
-		},
-		scale_up_layer,
 	));
 }
