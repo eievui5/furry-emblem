@@ -5,6 +5,8 @@ use fe_engine::cursor;
 use fe_engine::module;
 use fe_engine::ppcanvas::PixelPerfectCanvas;
 use leafwing_input_manager::prelude::*;
+use mlua::chunk;
+use mlua::prelude::*;
 
 const DEFAULT_TITLE: &str = "Furry Emblem Engine";
 const WINDOW_SIZE: UVec2 = UVec2::new(240, 160);
@@ -65,7 +67,10 @@ fn main() {
 			InputManagerPlugin::<cursor::UiAction>::default(),
 			TilemapPlugin,
 		))
-		.add_systems(Startup, (cursor::spawn, spawn_unit, startup))
+		.add_systems(
+			Startup,
+			(cursor::spawn, spawn_unit, startup, luau_scripting),
+		)
 		.add_systems(Update, (cursor::movement, cursor::rotate))
 		.add_systems(Update, fullscreen)
 		.run();
@@ -151,4 +156,89 @@ fn startup(
 		tile_size,
 		..Default::default()
 	});
+}
+
+fn luau_scripting() -> (Lua, Vec<mlua::Thread>) {
+	let lua = Lua::new();
+	let globals = lua.globals();
+
+	#[derive(Copy, Clone, Debug, FromLua)]
+	enum Event {
+		Immediately,
+		WaitPrint,
+		WaitMove,
+	}
+
+	impl mlua::UserData for Event {}
+
+	globals
+		.set(
+			"Event",
+			lua.create_table_from([
+				("Immediately", Event::Immediately),
+				("WaitPrint", Event::WaitPrint),
+				("WaitMove", Event::WaitMove),
+			])
+			.unwrap(),
+		)
+		.unwrap();
+
+	globals
+		.set(
+			"say",
+			lua.create_function(move |_, s: String| {
+				println!("{s}");
+				Ok(Event::WaitPrint)
+			})
+			.unwrap(),
+		)
+		.unwrap();
+
+	globals
+		.set(
+			"move",
+			lua.create_function(move |_, (x, y): (i32, i32)| {
+				println!("- Moved by ({x}, {y})");
+				Ok(Event::WaitMove)
+			})
+			.unwrap(),
+		)
+		.unwrap();
+
+	let chunk = lua.load(chunk! {
+		local yield = coroutine.yield
+
+		local function onEvent()
+			yield(say("Hello!"))
+			say("I'm moving")
+			move(0, 2)
+			// Explicit yield type.
+			// You only need this when multiple events have been started and you only want to wait for one.
+			yield(Event.WaitMove)
+			// Alternatively, wait for both to complete:
+			yield({
+				say("Moving again!"),
+				move(2, 0),
+			})
+		end
+
+		signal.interact = coroutine.create(onEvent)
+	});
+	chunk.exec().unwrap();
+	let event = globals
+		.get::<&str, mlua::Table>("signal")
+		.and_then(|t| t.get::<&str, mlua::Thread>("interact"));
+
+	if let Ok(event) = event {
+		while event.status() == LuaThreadStatus::Resumable {
+			if let Ok(Some(event)) = event.resume::<(), Option<Event>>(()) {
+				println!("Thread is yielding until: {event:?}",);
+			} else {
+				println!("Thread exited without requesting event.");
+			}
+		}
+		println!("Thread complete.");
+		return (lua, vec![event]);
+	}
+	return (lua, vec![]);
 }
