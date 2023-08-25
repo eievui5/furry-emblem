@@ -13,6 +13,7 @@ convert_case = "0.6.0"
 fe-data = { workspace = true, features = ["runtime"] }
 image = "0.24.7"
 leafwing-input-manager = "0.10.0"
+mlua = { version = "0.9.1", features = ["luau", "async", "macros", "luau-jit"] }
 serde = { version = "1.0.185", features = ["derive"] }
 thiserror = "1.0.47"
 toml = "0.7.6"
