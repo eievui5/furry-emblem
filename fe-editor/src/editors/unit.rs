@@ -25,7 +25,7 @@ impl UnitEditor {
 	}
 
 	pub fn new(path: impl AsRef<Path>, text: &str) -> anyhow::Result<Self> {
-		let unit: Unit = toml::from_str(&text)?;
+		let unit: Unit = toml::from_str(text)?;
 		let source_unit = Some(unit.clone());
 		Ok(Self {
 			path: path.as_ref().to_path_buf(),

@@ -4,7 +4,7 @@ use paste::paste;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fmt, fs, io, thread};
+use std::{fmt, fs, io};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -13,6 +13,9 @@ pub use class::ClassEditor;
 
 mod item;
 pub use item::ItemEditor;
+
+mod map;
+pub use map::MapEditor;
 
 mod unit;
 pub use unit::UnitEditor;
@@ -134,10 +137,14 @@ pub fn open_editor(file: &Path, text: &str) -> Result<Box<dyn Editor>, EditorErr
 		};
 	}
 
-	try_these!(
-		item, class, // This should always be last because it never fails.
+	try_these! {
+		map,
+		item,
+		class,
+		unit,
+		// toml should always be last because it never fails.
 		toml,
-	);
+	};
 }
 
 #[derive(Debug, Error)]

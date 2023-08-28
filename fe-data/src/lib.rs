@@ -40,6 +40,7 @@ macro_rules! import {
 
 import! {
 	items,
+	map,
 	class,
 	stats,
 	unit,

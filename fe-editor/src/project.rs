@@ -4,7 +4,6 @@ use fe_data::Module;
 use fe_data::*;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use paste::paste;
-use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::{fs, io, mem};
@@ -35,6 +34,12 @@ pub struct ItemPreview {
 }
 
 #[derive(Clone, Default, Eq, PartialEq)]
+pub struct MapPreview {
+	content: Map,
+	path: PathBuf,
+}
+
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct UnitPreview {
 	content: Unit,
 	path: PathBuf,
@@ -45,6 +50,7 @@ pub struct Project {
 	info: Module,
 	classes: Vec<ClassPreview>,
 	items: Vec<ItemPreview>,
+	maps: Vec<MapPreview>,
 	units: Vec<UnitPreview>,
 }
 
@@ -88,6 +94,7 @@ impl Project {
 
 		show_type!(classes, ClassEditor);
 		show_type!(items, ItemEditor);
+		show_type!(maps, MapEditor);
 		show_type!(units, UnitEditor);
 
 		result
@@ -126,6 +133,7 @@ impl TryFrom<Module> for Project {
 		let mut project = Self {
 			classes: Vec::new(),
 			items: Vec::new(),
+			maps: Vec::new(),
 			units: Vec::new(),
 			info,
 		};
