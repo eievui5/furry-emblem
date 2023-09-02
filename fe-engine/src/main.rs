@@ -158,7 +158,7 @@ fn startup(
 	});
 }
 
-fn luau_scripting() -> (Lua, Vec<mlua::Thread>) {
+fn luau_scripting() {
 	let lua = Lua::new();
 	let globals = lua.globals();
 
@@ -216,12 +216,10 @@ fn luau_scripting() -> (Lua, Vec<mlua::Thread>) {
 			// You only need this when multiple events have been started and you only want to wait for one.
 			yield(Event.WaitMove)
 			// Alternatively, wait for both to complete:
-			yield({
-				say("Moving again!"),
-				move(2, 0),
-			})
+			yield(say("Moving again!"))
 		end
 
+		signal = {}
 		signal.interact = coroutine.create(onEvent)
 	});
 	chunk.exec().unwrap();
@@ -238,7 +236,5 @@ fn luau_scripting() -> (Lua, Vec<mlua::Thread>) {
 			}
 		}
 		println!("Thread complete.");
-		return (lua, vec![event]);
 	}
-	return (lua, vec![]);
 }
