@@ -1,10 +1,11 @@
 use crate::close_handler::{CloseHandler, CloseHandlerResponse};
-use crate::editors::{open_editor, Editor, TomlEditor};
+use crate::editors::{open_editor, Editor};
 use crate::menu_bar::{self, FileTab, MenuBarResponse, OptionsTab};
 use crate::project::*;
 use egui::*;
 use egui_toast::*;
 use std::iter::Chain;
+use std::process::exit;
 use std::{fs, mem, option, slice};
 
 const TOAST_LENGTH: f64 = 5.0;
@@ -139,37 +140,14 @@ impl eframe::App for EditorApp {
 					toasts.add(error(msg));
 				}
 			}
+			Ok(Some(MenuBarResponse::Exit)) => {
+				if self.on_close_event() {
+					exit(0);
+				}
+			}
 			Ok(None) => {}
 			Err(msg) => {
 				toasts.add(error(msg));
-			}
-		}
-
-		// New file window
-		if let Some(new_editor) = self.file.new_file_window.show(ctx) {
-			self.editors.push(new_editor);
-		}
-
-		if let Err(msg) = show_project_manager(self, ctx) {
-			toasts.add(error(msg));
-		}
-
-		if let Some(response) = self.close_handler.show(ctx) {
-			use CloseHandlerResponse::*;
-
-			match response {
-				Exit => {
-					self.close_handler.force_close = true;
-					frame.close();
-				}
-				SaveAndExit => {
-					if let Err(msg) = self.save() {
-						toasts.add(error(msg));
-					} else {
-						frame.close();
-					}
-				}
-				Cancel => self.close_handler.visible = false,
 			}
 		}
 
@@ -179,13 +157,12 @@ impl eframe::App for EditorApp {
 			let mut close_requested = false;
 			let mut primary_requested = false;
 
-			let star = if self.editors[i].has_changes() {
-				" *"
-			} else {
-				""
-			};
+			let mut title = self.editors[i].get_name().clone();
+			if self.editors[i].has_changes() {
+				title += " *";
+			}
 
-			Window::new(format!("{}{}", self.editors[i].get_name(), star))
+			Window::new(title)
 				.id(Id::new(self.editors[i].get_id()))
 				.open(&mut is_open)
 				.show(ctx, |ui| {
@@ -224,6 +201,34 @@ impl eframe::App for EditorApp {
 					} {
 					self.editors.remove(i);
 				}
+			}
+		}
+
+		// New file window
+		if let Some(new_editor) = self.file.new_file_window.show(ctx) {
+			self.editors.push(new_editor);
+		}
+
+		if let Err(msg) = show_project_manager(self, ctx) {
+			toasts.add(error(msg));
+		}
+
+		if let Some(response) = self.close_handler.show(ctx) {
+			use CloseHandlerResponse::*;
+
+			match response {
+				Exit => {
+					self.close_handler.force_close = true;
+					frame.close();
+				}
+				SaveAndExit => {
+					if let Err(msg) = self.save() {
+						toasts.add(error(msg));
+					} else {
+						frame.close();
+					}
+				}
+				Cancel => self.close_handler.visible = false,
 			}
 		}
 
@@ -287,20 +292,6 @@ pub fn editor_window_opts(
 				"Failed to save {}:\n{msg}",
 				editor.get_path().display()
 			)));
-		}
-	}
-
-	if editor.is_toml() && ui.button("Open as TOML").clicked() {
-		match TomlEditor::open(editor.get_path()) {
-			Ok(toml_editor) => {
-				return Some(Box::new(toml_editor));
-			}
-			Err(msg) => {
-				toasts.add(error(format!(
-					"Failed to reopen {} as TOML:\n{msg}\nHas the file moved?",
-					editor.get_path().display()
-				)));
-			}
 		}
 	}
 

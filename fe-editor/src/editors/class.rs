@@ -1,7 +1,6 @@
 use super::*;
 use crate::file_dialogue::FilePicker;
 use crate::impl_save_as;
-use egui_extras::RetainedImage;
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -66,32 +65,12 @@ impl Editor for ClassEditor {
 			ui.end_row();
 
 			ui.label("Icon:");
-			ui.vertical(|ui| {
-				if ui.button(self.class.icon.path.to_string_lossy()).clicked() {
-					self.icon_picker.open();
-				}
-				if let Some(path) = self.icon_picker.try_take_relative(&self.path) {
-					self.class.icon.path = path
-				}
-				if let Some(image) = &self.icon.0 {
-					image.show(ui);
-				} else if !self.class.icon.path.as_os_str().is_empty() {
-					if let Ok(bytes) = fs::read(
-						self.path
-							.parent()
-							.unwrap_or(Path::new(""))
-							.join(&self.class.icon.path),
-					) {
-						self.icon.0 = Some(
-							RetainedImage::from_image_bytes(
-								self.class.icon.path.to_string_lossy(),
-								&bytes,
-							)
-							.unwrap(),
-						);
-					}
-				}
-			});
+			self.icon.show(
+				ui,
+				&self.path,
+				&mut self.class.icon.path,
+				&mut self.icon_picker,
+			);
 			ui.end_row();
 
 			stat_editor("Bases:", &mut self.class.bases, ui);

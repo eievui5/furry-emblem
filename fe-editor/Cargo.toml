@@ -9,19 +9,20 @@ edition = "2021"
 # Local dependencies
 fe-data = { workspace = true, features = ["runtime"] }
 
-egui_file = "0.10.0"
+anyhow = "1.0.72"
 eframe = "0.22.0"
 egui = "0.22.0"
-toml = "0.7.6"
-anyhow = "1.0.72"
-uuid = { version = "1.4.1", features = ["v4"] }
-paste = "1.0.14"
 egui-toast = "0.8.0"
+egui_extras = { version = "0.22.0", features = ["image"] }
+egui_file = "0.10.0"
+image = "0.24.7"
+notify = "6.0.1"
+paste = "1.0.14"
+pathdiff = "0.2.1"
+rfd = { version = "0.11.4",  default-features = false, features = ["xdg-portal"] }
 serde = "1.0.176"
 thiserror = "1.0.44"
-egui_extras = { version = "0.22.0", features = ["image"] }
-notify = "6.0.1"
-rfd = { version = "0.11.4",  default-features = false, features = ["xdg-portal"] }
-pathdiff = "0.2.1"
-image = "0.24.7"
-
+toml = "0.7.7"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.17"
+uuid = { version = "1.4.1", features = ["v4"] }

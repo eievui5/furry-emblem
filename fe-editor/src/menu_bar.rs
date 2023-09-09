@@ -17,6 +17,7 @@ pub struct OptionsTab {
 }
 
 pub enum MenuBarResponse {
+	Exit,
 	NewEditor(Box<dyn Editor>),
 	SaveAll,
 }
@@ -52,6 +53,10 @@ pub fn show(
 				}
 				if ui.button("Save All").clicked() {
 					result = Ok(Some(SaveAll));
+					ui.close_menu();
+				}
+				if ui.button("Exit").clicked() {
+					result = Ok(Some(Exit));
 					ui.close_menu();
 				}
 			});

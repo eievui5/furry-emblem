@@ -8,6 +8,7 @@ const APP_NAME: &str = "Furry Emblem Editor";
 const ICON: &[u8] = include_bytes!("../icon.png");
 
 fn main() -> Result<(), eframe::Error> {
+	tracing_subscriber::fmt::init();
 	let options = eframe::NativeOptions {
 		initial_window_size: Some(vec2(640.0, 480.0)),
 		icon_data: load_icon(),

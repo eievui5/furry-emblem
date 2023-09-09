@@ -1,10 +1,13 @@
+use crate::file_dialogue::FilePicker;
 use egui_extras::RetainedImage;
 use fe_data::*;
 use paste::paste;
 use std::borrow::Cow;
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
-use std::{fmt, fs, io};
+use std::{fmt, io};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -17,6 +20,9 @@ pub use item::ItemEditor;
 mod map;
 pub use map::MapEditor;
 
+mod tileset;
+pub use tileset::TilesetEditor;
+
 mod unit;
 pub use unit::UnitEditor;
 
@@ -25,7 +31,7 @@ macro_rules! impl_save_as {
 	($type:ident) => {
 		paste! {
 			fn save_as<'a>(&'a mut self, mut path: &'a Path) -> anyhow::Result<()> {
-				if path.is_dir() {
+				if !path.exists() || path.is_dir() {
 					if self.$type.name.is_empty() {
 						Err(SaveAsError::NoName)?;
 					}
@@ -110,6 +116,31 @@ impl Clone for OptionalImage {
 	}
 }
 
+impl OptionalImage {
+	pub fn show(
+		&mut self,
+		ui: &mut egui::Ui,
+		base_path: &Path,
+		path: &mut PathBuf,
+		picker: &mut FilePicker,
+	) {
+		if ui.button(path.to_string_lossy()).clicked() {
+			picker.open();
+		}
+		if let Some(p) = picker.try_take_relative(base_path) {
+			*path = p;
+		}
+		if let Some(image) = &self.0 {
+			image.show(ui);
+		} else if !path.as_os_str().is_empty() {
+			if let Ok(bytes) = fs::read(base_path.parent().unwrap_or(Path::new("")).join(&path)) {
+				self.0 =
+					Some(RetainedImage::from_image_bytes(path.to_string_lossy(), &bytes).unwrap());
+			}
+		}
+	}
+}
+
 pub fn open_editor(file: &Path, text: &str) -> Result<Box<dyn Editor>, EditorError> {
 	use EditorError::*;
 
@@ -141,9 +172,8 @@ pub fn open_editor(file: &Path, text: &str) -> Result<Box<dyn Editor>, EditorErr
 		map,
 		item,
 		class,
+		tileset,
 		unit,
-		// toml should always be last because it never fails.
-		toml,
 	};
 }
 
@@ -189,54 +219,4 @@ pub trait Editor {
 enum SaveAsError {
 	#[error("Cannot save a file with no name! (Hold shift to close without saving)")]
 	NoName,
-}
-
-pub struct TomlEditor {
-	pub path: PathBuf,
-	pub text: String,
-	pub id: Uuid,
-}
-
-impl TomlEditor {
-	pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
-		let text = fs::read_to_string(&path)?;
-		Ok(Self::new(path, &text).unwrap())
-	}
-
-	pub fn new(path: impl AsRef<Path>, text: &str) -> anyhow::Result<Self> {
-		Ok(Self {
-			path: path.as_ref().to_path_buf(),
-			text: text.to_string(),
-			id: Uuid::new_v4(),
-		})
-	}
-}
-
-impl Editor for TomlEditor {
-	fn get_path(&self) -> &Path {
-		&self.path
-	}
-
-	fn get_id(&self) -> Uuid {
-		self.id
-	}
-
-	fn is_toml(&self) -> bool {
-		false
-	}
-
-	fn show(&mut self, ui: &mut egui::Ui) {
-		egui::ScrollArea::vertical().show(ui, |ui| {
-			ui.add(
-				egui::TextEdit::multiline(&mut self.text)
-					.code_editor()
-					.desired_width(f32::INFINITY),
-			)
-		});
-	}
-
-	fn save_as(&mut self, path: &Path) -> anyhow::Result<()> {
-		fs::write(path, &self.text)?;
-		Ok(())
-	}
 }

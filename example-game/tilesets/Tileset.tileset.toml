@@ -1,0 +1,58 @@
+name = "Tileset"
+tile_width = 16
+
+[texture]
+path = "atlases/tileset.png"
+
+[[atlas]]
+
+[atlas.Tile]
+x = 0
+y = 0
+
+[[atlas]]
+
+[atlas.Tile]
+terrain = "Trees"
+x = 1
+y = 0
+
+[[atlas]]
+
+[atlas.Tile]
+x = 2
+y = 0
+
+[[atlas]]
+
+[atlas.Tile]
+x = 3
+y = 0
+
+[[atlas]]
+
+[atlas.Tile]
+terrain = "Grass"
+x = 0
+y = 1
+
+[[atlas]]
+
+[atlas.Tile]
+terrain = "Grass"
+x = 1
+y = 1
+
+[[atlas]]
+
+[atlas.Tile]
+terrain = "Grass"
+x = 2
+y = 1
+
+[[atlas]]
+
+[atlas.Tile]
+terrain = "Stone"
+x = 3
+y = 1

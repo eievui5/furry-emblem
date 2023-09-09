@@ -13,7 +13,7 @@ serde = { version = "1.0.174", features = ["derive"] }
 sucrose = { workspace = true, optional = true }
 
 [dev-dependencies]
-toml = "0.7.6"
+toml = "0.7.7"
 
 [features]
 runtime = ["dep:image", "dep:log"]

@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::{fs, io, mem};
 use thiserror::Error;
+use tracing::*;
 
 pub const PROJECT_FILE: &str = "fe-project.toml";
 
@@ -40,6 +41,12 @@ pub struct MapPreview {
 }
 
 #[derive(Clone, Default, Eq, PartialEq)]
+pub struct TilesetPreview {
+	content: Tileset,
+	path: PathBuf,
+}
+
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct UnitPreview {
 	content: Unit,
 	path: PathBuf,
@@ -51,6 +58,7 @@ pub struct Project {
 	classes: Vec<ClassPreview>,
 	items: Vec<ItemPreview>,
 	maps: Vec<MapPreview>,
+	tilesets: Vec<TilesetPreview>,
 	units: Vec<UnitPreview>,
 }
 
@@ -96,6 +104,7 @@ impl Project {
 		show_type!(items, ItemEditor);
 		show_type!(maps, MapEditor);
 		show_type!(units, UnitEditor);
+		show_type!(tilesets, TilesetEditor);
 
 		result
 	}
@@ -122,6 +131,8 @@ impl Project {
 		load_dir!(classes, Class, ClassPreview);
 		load_dir!(items, Item, ItemPreview);
 		load_dir!(units, Unit, UnitPreview);
+		load_dir!(maps, Map, MapPreview);
+		load_dir!(tilesets, Tileset, TilesetPreview);
 		Ok(())
 	}
 }
@@ -131,11 +142,8 @@ impl TryFrom<Module> for Project {
 
 	fn try_from(info: Module) -> Result<Self, anyhow::Error> {
 		let mut project = Self {
-			classes: Vec::new(),
-			items: Vec::new(),
-			maps: Vec::new(),
-			units: Vec::new(),
 			info,
+			..Default::default()
 		};
 
 		project.populate()?;
@@ -180,14 +188,14 @@ impl ProjectManager {
 			if let Err(msg) = sender.send(res) {
 				// There's no real way to handle this, but we can at least print an error message.
 				// Ideally we'd show a toast but clearly cross-thread communication isn't working so that's not an option.
-				eprintln!("Failed to notify main thread of folder update: {msg}");
+				warn!("Failed to notify main thread of folder update: {msg}");
 			}
 		})
 		.ok();
 
 		if let Some(folder_watcher) = &mut self.folder_watcher {
 			if let Err(msg) = folder_watcher.watch(&project.info.path, RecursiveMode::Recursive) {
-				eprintln!("Failed to watch {}: {msg}", project.info.path.display());
+				error!("Failed to watch {}: {msg}", project.info.path.display());
 			}
 		}
 
