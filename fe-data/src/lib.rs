@@ -10,7 +10,7 @@ macro_rules! make_reference {
 		#[serde(default)]
 		#[doc = concat!("Wrapper type around ", stringify!($target), ", producing a `&'static` reference when make static.")]
 		pub struct $newtype {
-			identifier: String,
+			pub identifier: String,
 		}
 
 		#[cfg(feature = "sucrose")]
@@ -82,9 +82,14 @@ impl PartialEq for Module {
 }
 
 #[cfg(feature = "runtime")]
+#[derive(thiserror::Error, Debug)]
+#[error("Failed to load custom icon: {0:?}: {1}")]
+pub struct PopulateModuleError(PathBuf, image::ImageError);
+
+#[cfg(feature = "runtime")]
 impl Module {
 	/// Fills runtime fields according to inputs.
-	pub fn populate(&mut self, path: PathBuf) {
+	pub fn populate(&mut self, path: PathBuf) -> Result<(), PopulateModuleError> {
 		use std::path::Path;
 
 		let icon_path = path.join(self.icon_path.as_ref().map_or(Path::new("icon.png"), |p| p));
@@ -93,10 +98,11 @@ impl Module {
 			Err(msg) => {
 				// If the user didn't ask to load an icon, they won't care about this error.
 				if self.icon_path.is_some() {
-					log::error!("Failed to load custom icon: {}: {msg}", icon_path.display());
+					return Err(PopulateModuleError(icon_path, msg));
 				}
 			}
 		}
 		self.path = path;
+		Ok(())
 	}
 }

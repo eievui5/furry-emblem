@@ -244,9 +244,6 @@ name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "ash"
@@ -2190,11 +2187,11 @@ dependencies = [
 name = "fe-data"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
+ "grid 0.10.0 (git+https://github.com/eievui5/grid)",
  "image",
- "log",
  "serde",
  "sucrose",
+ "thiserror",
  "toml",
 ]
 
@@ -2696,6 +2693,14 @@ name = "grid"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eec1c01eb1de97451ee0d60de7d81cf1e72aabefb021616027f3d1c3ec1c723c"
+
+[[package]]
+name = "grid"
+version = "0.10.0"
+source = "git+https://github.com/eievui5/grid#f90a723c188d083a6dbf8027f9be28b0cd4241c1"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "guillotiere"
@@ -4181,9 +4186,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.11"
+version = "0.38.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0c3dde1fc030af041adc40e79c0e7fbcf431dd24870053d187d7c66e4b87453"
+checksum = "bdf14a7a466ce88b5eac3da815b53aefc208ce7e74d1c263aabb04d88c4abeb1"
 dependencies = [
  "bitflags 2.4.0",
  "errno",
@@ -4265,9 +4270,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693151e1ac27563d6dbcec9dee9fbd5da8539b20fa14ad3752b2e6d363ace360"
+checksum = "2cc66a619ed80bf7a0f6b17dd063a84b88f6dea1813737cf469aef1d081142c2"
 dependencies = [
  "itoa",
  "ryu",
@@ -4537,7 +4542,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82870da09c57a8a5a50f830ce8993a6637b9a4932f69257f12aea3fa68f588c9"
 dependencies = [
  "arrayvec",
- "grid",
+ "grid 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits",
  "slotmap",
 ]
@@ -4551,7 +4556,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.0.0",
  "redox_syscall",
- "rustix 0.38.11",
+ "rustix 0.38.12",
  "windows-sys 0.48.0",
 ]
 

@@ -55,14 +55,27 @@ impl Editor for MapEditor {
 	impl_save_as!(map);
 
 	fn show(&mut self, ui: &mut egui::Ui) {
+		egui::Grid::new("Map Grid")
+			.min_col_width(128.0)
+			.striped(true)
+			.show(ui, |ui| {
+				ui.label("Name:");
+				ui.text_edit_singleline(&mut self.map.name);
+				ui.end_row();
+
+				ui.label("Tileset:");
+				ui.text_edit_singleline(&mut self.map.tileset.identifier);
+				ui.end_row();
+			});
+
 		let scale: f32 = 32.0;
 
 		let (_, rect) = ui.allocate_space(ui.available_size());
 		let b = rect.min;
 		let painter = ui.painter();
 
-		for y in 0..10 {
-			for x in 0..15 {
+		for y in 0..self.map.tiles.rows() {
+			for x in 0..self.map.tiles.cols() {
 				let here = b + Vec2 {
 					x: x as f32,
 					y: y as f32,

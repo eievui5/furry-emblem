@@ -1,4 +1,5 @@
 use crate::containers::Image;
+use grid::Grid;
 use serde::{Deserialize, Serialize};
 
 /// Integer representing tile IDs.
@@ -7,14 +8,22 @@ use serde::{Deserialize, Serialize};
 pub type Tile = u8;
 
 #[cfg_attr(feature = "sucrose", derive(Resource))]
-#[derive(Clone, Default, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Map {
 	pub name: String,
-	pub width: u32,
-	pub height: u32,
-	pub tiles: Vec<Tile>,
+	pub tiles: Grid<Tile>,
 	pub tileset: TilesetReference,
+}
+
+impl Default for Map {
+	fn default() -> Self {
+		Self {
+			name: String::new(),
+			tiles: Grid::new(10, 15),
+			tileset: TilesetReference::default(),
+		}
+	}
 }
 
 #[cfg_attr(feature = "sucrose", derive(Resource))]

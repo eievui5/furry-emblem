@@ -12,4 +12,6 @@ fn main() {
 	};
 
 	println!("{}", toml::to_string(&example_item).unwrap());
+
+	println!("{}", toml::to_string(&Map::default()).unwrap());
 }
